@@ -1,13 +1,13 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 
 import { useRouter } from 'next/navigation';
 
 import { Loader } from 'lucide-react';
 
-import { Recipient } from '@documenso/prisma/client';
-import { FieldWithSignature } from '@documenso/prisma/types/field-with-signature';
+import type { Recipient } from '@documenso/prisma/client';
+import type { FieldWithSignature } from '@documenso/prisma/types/field-with-signature';
 import { trpc } from '@documenso/trpc/react';
 import { Button } from '@documenso/ui/primitives/button';
 import { Dialog, DialogContent, DialogFooter, DialogTitle } from '@documenso/ui/primitives/dialog';
@@ -48,6 +48,7 @@ export const SignatureField = ({ field, recipient }: SignatureFieldProps) => {
 
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   const [localSignature, setLocalSignature] = useState<string | null>(null);
+  const [isLocalSignatureSet, setIsLocalSignatureSet] = useState(false);
 
   const state = useMemo<SignatureFieldState>(() => {
     if (!field.inserted) {
@@ -61,9 +62,16 @@ export const SignatureField = ({ field, recipient }: SignatureFieldProps) => {
     return 'signed-text';
   }, [field.inserted, signature?.signatureImageAsBase64]);
 
+  useEffect(() => {
+    if (!showSignatureModal && !isLocalSignatureSet) {
+      setLocalSignature(null);
+    }
+  }, [showSignatureModal, isLocalSignatureSet]);
+
   const onSign = async (source: 'local' | 'provider' = 'provider') => {
     try {
       if (!providedSignature && !localSignature) {
+        setIsLocalSignatureSet(false);
         setShowSignatureModal(true);
         return;
       }
@@ -113,7 +121,7 @@ export const SignatureField = ({ field, recipient }: SignatureFieldProps) => {
   };
 
   return (
-    <SigningFieldContainer field={field} onSign={onSign} onRemove={onRemove}>
+    <SigningFieldContainer field={field} onSign={onSign} onRemove={onRemove} type="Signature">
       {isLoading && (
         <div className="bg-background absolute inset-0 flex items-center justify-center rounded-md">
           <Loader className="text-primary h-5 w-5 animate-spin md:h-8 md:w-8" />
@@ -178,6 +186,7 @@ export const SignatureField = ({ field, recipient }: SignatureFieldProps) => {
                 disabled={!localSignature}
                 onClick={() => {
                   setShowSignatureModal(false);
+                  setIsLocalSignatureSet(true);
                   void onSign('local');
                 }}
               >

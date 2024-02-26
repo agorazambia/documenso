@@ -11,7 +11,8 @@ import { getBoundingClientRect } from '@documenso/lib/client-only/get-bounding-c
 import { useDocumentElement } from '@documenso/lib/client-only/hooks/use-document-element';
 import { PDF_VIEWER_PAGE_SELECTOR } from '@documenso/lib/constants/pdf-viewer';
 import { nanoid } from '@documenso/lib/universal/id';
-import { Field, FieldType, Recipient, SendStatus } from '@documenso/prisma/client';
+import type { Field, Recipient } from '@documenso/prisma/client';
+import { FieldType, SendStatus } from '@documenso/prisma/client';
 import { cn } from '@documenso/ui/lib/utils';
 import { Button } from '@documenso/ui/primitives/button';
 import { Card, CardContent } from '@documenso/ui/primitives/card';
@@ -25,7 +26,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@documenso/ui/primitives/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@documenso/ui/primitives/tooltip';
 
-import { TAddFieldsFormSchema } from './add-fields.types';
+import type { TAddFieldsFormSchema } from './add-fields.types';
 import {
   DocumentFlowFormContainerActions,
   DocumentFlowFormContainerContent,
@@ -33,7 +34,8 @@ import {
   DocumentFlowFormContainerStep,
 } from './document-flow-root';
 import { FieldItem } from './field-item';
-import { DocumentFlowStep, FRIENDLY_FIELD_TYPE } from './types';
+import type { DocumentFlowStep } from './types';
+import { FRIENDLY_FIELD_TYPE } from './types';
 
 const fontCaveat = Caveat({
   weight: ['500'],
@@ -246,12 +248,12 @@ export const AddFieldsFormPartial = ({
   useEffect(() => {
     if (selectedField) {
       window.addEventListener('mousemove', onMouseMove);
-      window.addEventListener('click', onMouseClick);
+      window.addEventListener('mouseup', onMouseClick);
     }
 
     return () => {
       window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('click', onMouseClick);
+      window.removeEventListener('mouseup', onMouseClick);
     };
   }, [onMouseClick, onMouseMove, selectedField]);
 
@@ -417,7 +419,7 @@ export const AddFieldsFormPartial = ({
                 type="button"
                 className="group h-full w-full"
                 disabled={!selectedSigner || selectedSigner?.sendStatus === SendStatus.SENT}
-                onClick={(e) => e.stopPropagation()}
+                onClick={() => setSelectedField(FieldType.SIGNATURE)}
                 onMouseDown={() => setSelectedField(FieldType.SIGNATURE)}
                 data-selected={selectedField === FieldType.SIGNATURE ? true : undefined}
               >
@@ -425,7 +427,7 @@ export const AddFieldsFormPartial = ({
                   <CardContent className="flex flex-col items-center justify-center px-6 py-4">
                     <p
                       className={cn(
-                        'text-muted-foreground group-data-[selected]:text-foreground text-3xl font-medium',
+                        'text-muted-foreground group-data-[selected]:text-foreground w-full truncate text-3xl font-medium',
                         fontCaveat.className,
                       )}
                     >
@@ -441,7 +443,7 @@ export const AddFieldsFormPartial = ({
                 type="button"
                 className="group h-full w-full"
                 disabled={!selectedSigner || selectedSigner?.sendStatus === SendStatus.SENT}
-                onClick={(e) => e.stopPropagation()}
+                onClick={() => setSelectedField(FieldType.EMAIL)}
                 onMouseDown={() => setSelectedField(FieldType.EMAIL)}
                 data-selected={selectedField === FieldType.EMAIL ? true : undefined}
               >
@@ -464,7 +466,7 @@ export const AddFieldsFormPartial = ({
                 type="button"
                 className="group h-full w-full"
                 disabled={!selectedSigner || selectedSigner?.sendStatus === SendStatus.SENT}
-                onClick={(e) => e.stopPropagation()}
+                onClick={() => setSelectedField(FieldType.NAME)}
                 onMouseDown={() => setSelectedField(FieldType.NAME)}
                 data-selected={selectedField === FieldType.NAME ? true : undefined}
               >
@@ -487,7 +489,7 @@ export const AddFieldsFormPartial = ({
                 type="button"
                 className="group h-full w-full"
                 disabled={!selectedSigner || selectedSigner?.sendStatus === SendStatus.SENT}
-                onClick={(e) => e.stopPropagation()}
+                onClick={() => setSelectedField(FieldType.DATE)}
                 onMouseDown={() => setSelectedField(FieldType.DATE)}
                 data-selected={selectedField === FieldType.DATE ? true : undefined}
               >

@@ -3,13 +3,14 @@
 import { useState } from 'react';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Eye, EyeOff, Loader } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { signIn } from 'next-auth/react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { TRPCClientError } from '@documenso/trpc/client';
 import { trpc } from '@documenso/trpc/react';
+import { ZPasswordSchema } from '@documenso/trpc/server/auth-router/schema';
 import { cn } from '@documenso/ui/lib/utils';
 import { Button } from '@documenso/ui/primitives/button';
 import { FormErrorMessage } from '@documenso/ui/primitives/form/form-error-message';
@@ -18,12 +19,22 @@ import { Label } from '@documenso/ui/primitives/label';
 import { SignaturePad } from '@documenso/ui/primitives/signature-pad';
 import { useToast } from '@documenso/ui/primitives/use-toast';
 
-export const ZSignUpFormSchema = z.object({
-  name: z.string().min(1),
-  email: z.string().email().min(1),
-  password: z.string().min(6).max(72),
-  signature: z.string().min(1, { message: 'We need your signature to sign documents' }),
-});
+export const ZSignUpFormSchema = z
+  .object({
+    name: z.string().trim().min(1, { message: 'Please enter a valid name.' }),
+    email: z.string().email().min(1),
+    password: ZPasswordSchema,
+    signature: z.string().min(1, { message: 'We need your signature to sign documents' }),
+  })
+  .refine(
+    (data) => {
+      const { name, email, password } = data;
+      return !password.includes(name) && !password.includes(email.split('@')[0]);
+    },
+    {
+      message: 'Password should not be common or based on personal information',
+    },
+  );
 
 export type TSignUpFormSchema = z.infer<typeof ZSignUpFormSchema>;
 
@@ -147,7 +158,8 @@ export const SignUpForm = ({ className }: SignUpFormProps) => {
             name="signature"
             render={({ field: { onChange } }) => (
               <SignaturePad
-                className="mt-2 h-36 w-full rounded-lg border bg-white dark:border-[#e2d7c5] dark:bg-[#fcf8ee]"
+                className="h-36 w-full"
+                containerClassName="mt-2 rounded-lg border bg-background"
                 onChange={(v) => onChange(v ?? '')}
               />
             )}
@@ -157,9 +169,13 @@ export const SignUpForm = ({ className }: SignUpFormProps) => {
         <FormErrorMessage className="mt-1.5" error={errors.signature} />
       </div>
 
-      <Button size="lg" disabled={isSubmitting} className="dark:bg-documenso dark:hover:opacity-90">
-        {isSubmitting && <Loader className="mr-2 h-5 w-5 animate-spin" />}
-        Sign Up
+      <Button
+        size="lg"
+        loading={isSubmitting}
+        disabled={isSubmitting}
+        className="dark:bg-documenso dark:hover:opacity-90"
+      >
+        {isSubmitting ? 'Signing up...' : 'Sign Up'}
       </Button>
     </form>
   );

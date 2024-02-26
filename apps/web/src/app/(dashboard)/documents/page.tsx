@@ -1,6 +1,6 @@
 import Link from 'next/link';
 
-import { getRequiredServerComponentSession } from '@documenso/lib/next-auth/get-server-session';
+import { getRequiredServerComponentSession } from '@documenso/lib/next-auth/get-server-component-session';
 import { findDocuments } from '@documenso/lib/server-only/document/find-documents';
 import { getStats } from '@documenso/lib/server-only/document/get-stats';
 import { isExtendedDocumentStatus } from '@documenso/prisma/guards/is-extended-document-status';
@@ -8,7 +8,8 @@ import { ExtendedDocumentStatus } from '@documenso/prisma/types/extended-documen
 import { Tabs, TabsList, TabsTrigger } from '@documenso/ui/primitives/tabs';
 
 import { PeriodSelector } from '~/components/(dashboard)/period-selector/period-selector';
-import { PeriodSelectorValue } from '~/components/(dashboard)/period-selector/types';
+import type { PeriodSelectorValue } from '~/components/(dashboard)/period-selector/types';
+import { isPeriodSelectorValue } from '~/components/(dashboard)/period-selector/types';
 import { DocumentStatus } from '~/components/formatter/document-status';
 
 import { DocumentsDataTable } from './data-table';
@@ -32,7 +33,7 @@ export default async function DocumentsPage({ searchParams = {} }: DocumentsPage
   });
 
   const status = isExtendedDocumentStatus(searchParams.status) ? searchParams.status : 'ALL';
-  // const period = isPeriodSelectorValue(searchParams.period) ? searchParams.period : '';
+  const period = isPeriodSelectorValue(searchParams.period) ? searchParams.period : '';
   const page = Number(searchParams.page) || 1;
   const perPage = Number(searchParams.perPage) || 20;
 
@@ -45,6 +46,7 @@ export default async function DocumentsPage({ searchParams = {} }: DocumentsPage
     },
     page,
     perPage,
+    period,
   });
 
   const getTabHref = (value: typeof status) => {
@@ -66,7 +68,7 @@ export default async function DocumentsPage({ searchParams = {} }: DocumentsPage
       <div className="mt-12 flex flex-wrap items-center justify-between gap-x-4 gap-y-8">
         <h1 className="text-4xl font-semibold">Documents</h1>
 
-        <div className="flex flex-wrap gap-x-4 gap-y-6 overflow-hidden">
+        <div className="-m-1 flex flex-wrap gap-x-4 gap-y-6 overflow-hidden p-1">
           <Tabs defaultValue={status} className="overflow-x-auto">
             <TabsList>
               {[

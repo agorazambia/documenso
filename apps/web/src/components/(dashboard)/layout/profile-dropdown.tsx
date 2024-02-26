@@ -4,8 +4,7 @@ import Link from 'next/link';
 
 import {
   CreditCard,
-  Github,
-  Key,
+  Lock,
   LogOut,
   User as LucideUser,
   Monitor,
@@ -16,6 +15,7 @@ import {
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { useTheme } from 'next-themes';
+import { LuGithub } from 'react-icons/lu';
 
 import { useFeatureFlags } from '@documenso/lib/client-only/providers/feature-flag';
 import { isAdmin } from '@documenso/lib/next-auth/guards/is-admin';
@@ -87,9 +87,9 @@ export const ProfileDropdown = ({ user }: ProfileDropdownProps) => {
         </DropdownMenuItem>
 
         <DropdownMenuItem asChild>
-          <Link href="/settings/password" className="cursor-pointer">
-            <Key className="mr-2 h-4 w-4" />
-            Password
+          <Link href="/settings/security" className="cursor-pointer">
+            <Lock className="mr-2 h-4 w-4" />
+            Security
           </Link>
         </DropdownMenuItem>
 
@@ -130,7 +130,7 @@ export const ProfileDropdown = ({ user }: ProfileDropdownProps) => {
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
           <Link href="https://github.com/documenso/documenso" className="cursor-pointer">
-            <Github className="mr-2 h-4 w-4" />
+            <LuGithub className="mr-2 h-4 w-4" />
             Star on Github
           </Link>
         </DropdownMenuItem>
