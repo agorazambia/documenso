@@ -1,3 +1,4 @@
+import { type TFieldMetaSchema as FieldMeta } from '@documenso/lib/types/field-meta';
 import { prisma } from '@documenso/prisma';
 import type { FieldType, Team } from '@documenso/prisma/client';
 
@@ -18,6 +19,7 @@ export type UpdateFieldOptions = {
   pageWidth?: number;
   pageHeight?: number;
   requestMetadata?: RequestMetadata;
+  fieldMeta?: FieldMeta;
 };
 
 export const updateField = async ({
@@ -33,7 +35,12 @@ export const updateField = async ({
   pageWidth,
   pageHeight,
   requestMetadata,
+  fieldMeta,
 }: UpdateFieldOptions) => {
+  if (type === 'FREE_SIGNATURE') {
+    throw new Error('Cannot update a FREE_SIGNATURE field');
+  }
+
   const oldField = await prisma.field.findFirstOrThrow({
     where: {
       id: fieldId,
@@ -58,6 +65,11 @@ export const updateField = async ({
     },
   });
 
+  const newFieldMeta = {
+    ...(oldField.fieldMeta as FieldMeta),
+    ...fieldMeta,
+  };
+
   const field = prisma.$transaction(async (tx) => {
     const updatedField = await tx.field.update({
       where: {
@@ -71,11 +83,38 @@ export const updateField = async ({
         positionY: pageY,
         width: pageWidth,
         height: pageHeight,
+        fieldMeta: newFieldMeta,
       },
       include: {
         Recipient: true,
       },
     });
+
+    const user = await prisma.user.findFirstOrThrow({
+      where: {
+        id: userId,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+      },
+    });
+
+    let team: Team | null = null;
+
+    if (teamId) {
+      team = await prisma.team.findFirst({
+        where: {
+          id: teamId,
+          members: {
+            some: {
+              userId,
+            },
+          },
+        },
+      });
+    }
 
     await tx.documentAuditLog.create({
       data: createDocumentAuditLogData({
@@ -99,32 +138,6 @@ export const updateField = async ({
 
     return updatedField;
   });
-
-  const user = await prisma.user.findFirstOrThrow({
-    where: {
-      id: userId,
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-    },
-  });
-
-  let team: Team | null = null;
-
-  if (teamId) {
-    team = await prisma.team.findFirst({
-      where: {
-        id: teamId,
-        members: {
-          some: {
-            userId,
-          },
-        },
-      },
-    });
-  }
 
   return field;
 };

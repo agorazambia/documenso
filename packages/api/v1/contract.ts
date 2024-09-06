@@ -15,11 +15,19 @@ import {
   ZGenerateDocumentFromTemplateMutationResponseSchema,
   ZGenerateDocumentFromTemplateMutationSchema,
   ZGetDocumentsQuerySchema,
+  ZGetTemplatesQuerySchema,
+  ZNoBodyMutationSchema,
+  ZResendDocumentForSigningMutationSchema,
   ZSendDocumentForSigningMutationSchema,
+  ZSuccessfulDeleteTemplateResponseSchema,
   ZSuccessfulDocumentResponseSchema,
+  ZSuccessfulFieldCreationResponseSchema,
   ZSuccessfulFieldResponseSchema,
   ZSuccessfulGetDocumentResponseSchema,
+  ZSuccessfulGetTemplateResponseSchema,
+  ZSuccessfulGetTemplatesResponseSchema,
   ZSuccessfulRecipientResponseSchema,
+  ZSuccessfulResendDocumentResponseSchema,
   ZSuccessfulResponseSchema,
   ZSuccessfulSigningResponseSchema,
   ZUnsuccessfulResponseSchema,
@@ -77,6 +85,41 @@ export const ApiContractV1 = c.router(
       summary: 'Upload a new document and get a presigned URL',
     },
 
+    deleteTemplate: {
+      method: 'DELETE',
+      path: '/api/v1/templates/:id',
+      body: ZNoBodyMutationSchema,
+      responses: {
+        200: ZSuccessfulDeleteTemplateResponseSchema,
+        401: ZUnsuccessfulResponseSchema,
+        404: ZUnsuccessfulResponseSchema,
+      },
+      summary: 'Delete a template',
+    },
+
+    getTemplate: {
+      method: 'GET',
+      path: '/api/v1/templates/:id',
+      responses: {
+        200: ZSuccessfulGetTemplateResponseSchema,
+        401: ZUnsuccessfulResponseSchema,
+        404: ZUnsuccessfulResponseSchema,
+      },
+      summary: 'Get a single template',
+    },
+
+    getTemplates: {
+      method: 'GET',
+      path: '/api/v1/templates',
+      query: ZGetTemplatesQuerySchema,
+      responses: {
+        200: ZSuccessfulGetTemplatesResponseSchema,
+        401: ZUnsuccessfulResponseSchema,
+        404: ZUnsuccessfulResponseSchema,
+      },
+      summary: 'Get all templates',
+    },
+
     createDocumentFromTemplate: {
       method: 'POST',
       path: '/api/v1/templates/:templateId/create-document',
@@ -119,6 +162,20 @@ export const ApiContractV1 = c.router(
         500: ZUnsuccessfulResponseSchema,
       },
       summary: 'Send a document for signing',
+    },
+
+    resendDocument: {
+      method: 'POST',
+      path: '/api/v1/documents/:id/resend',
+      body: ZResendDocumentForSigningMutationSchema,
+      responses: {
+        200: ZSuccessfulResendDocumentResponseSchema,
+        400: ZUnsuccessfulResponseSchema,
+        401: ZUnsuccessfulResponseSchema,
+        404: ZUnsuccessfulResponseSchema,
+        500: ZUnsuccessfulResponseSchema,
+      },
+      summary: 'Re-send a document for signing',
     },
 
     deleteDocument: {
@@ -180,7 +237,7 @@ export const ApiContractV1 = c.router(
       path: '/api/v1/documents/:id/fields',
       body: ZCreateFieldMutationSchema,
       responses: {
-        200: ZSuccessfulFieldResponseSchema,
+        200: ZSuccessfulFieldCreationResponseSchema,
         400: ZUnsuccessfulResponseSchema,
         401: ZUnsuccessfulResponseSchema,
         404: ZUnsuccessfulResponseSchema,

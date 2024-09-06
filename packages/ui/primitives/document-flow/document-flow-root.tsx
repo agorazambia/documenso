@@ -3,6 +3,9 @@
 import type { HTMLAttributes } from 'react';
 import React from 'react';
 
+import type { MessageDescriptor } from '@lingui/core';
+import { Trans, msg } from '@lingui/macro';
+import { useLingui } from '@lingui/react';
 import { motion } from 'framer-motion';
 
 import { cn } from '../../lib/utils';
@@ -33,19 +36,21 @@ export const DocumentFlowFormContainer = ({
 };
 
 export type DocumentFlowFormContainerHeaderProps = {
-  title: string;
-  description: string;
+  title: MessageDescriptor;
+  description: MessageDescriptor;
 };
 
 export const DocumentFlowFormContainerHeader = ({
   title,
   description,
 }: DocumentFlowFormContainerHeaderProps) => {
+  const { _ } = useLingui();
+
   return (
     <>
-      <h3 className="text-foreground text-2xl font-semibold">{title}</h3>
+      <h3 className="text-foreground text-2xl font-semibold">{_(title)}</h3>
 
-      <p className="text-muted-foreground mt-2 text-sm">{description}</p>
+      <p className="text-muted-foreground mt-2 text-sm">{_(description)}</p>
 
       <hr className="border-border mb-8 mt-4" />
     </>
@@ -88,7 +93,6 @@ export const DocumentFlowFormContainerFooter = ({
 };
 
 export type DocumentFlowFormContainerStepProps = {
-  title: string;
   step: number;
   maxStep: number;
 };
@@ -100,7 +104,9 @@ export const DocumentFlowFormContainerStep = ({
   return (
     <div>
       <p className="text-muted-foreground text-sm">
-        Step <span>{`${step} of ${maxStep}`}</span>
+        <Trans>
+          Step <span>{`${step} of ${maxStep}`}</span>
+        </Trans>
       </p>
 
       <div className="bg-muted relative mt-4 h-[2px] rounded-md">
@@ -120,24 +126,27 @@ export const DocumentFlowFormContainerStep = ({
 export type DocumentFlowFormContainerActionsProps = {
   canGoBack?: boolean;
   canGoNext?: boolean;
-  goNextLabel?: string;
-  goBackLabel?: string;
+  goNextLabel?: MessageDescriptor;
+  goBackLabel?: MessageDescriptor;
   onGoBackClick?: () => void;
   onGoNextClick?: () => void;
   loading?: boolean;
   disabled?: boolean;
+  disableNextStep?: boolean;
 };
 
 export const DocumentFlowFormContainerActions = ({
   canGoBack = true,
   canGoNext = true,
-  goNextLabel = 'Continue',
-  goBackLabel = 'Go Back',
+  goNextLabel = msg`Continue`,
+  goBackLabel = msg`Go Back`,
   onGoBackClick,
   onGoNextClick,
   loading,
   disabled,
+  disableNextStep = false,
 }: DocumentFlowFormContainerActionsProps) => {
+  const { _ } = useLingui();
   return (
     <div className="mt-4 flex gap-x-4">
       <Button
@@ -148,18 +157,18 @@ export const DocumentFlowFormContainerActions = ({
         disabled={disabled || loading || !canGoBack || !onGoBackClick}
         onClick={onGoBackClick}
       >
-        {goBackLabel}
+        {_(goBackLabel)}
       </Button>
 
       <Button
         type="button"
         className="bg-documenso flex-1"
         size="lg"
-        disabled={disabled || loading || !canGoNext}
+        disabled={disabled || disableNextStep || loading || !canGoNext}
         loading={loading}
         onClick={onGoNextClick}
       >
-        {goNextLabel}
+        {_(goNextLabel)}
       </Button>
     </div>
   );

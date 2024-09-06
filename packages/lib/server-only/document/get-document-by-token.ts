@@ -99,7 +99,7 @@ export const getDocumentAndSenderByToken = async ({
   if (requireAccessAuth) {
     documentAccessValid = await isRecipientAuthorized({
       type: 'ACCESS',
-      document: result,
+      documentAuthOptions: result.authOptions,
       recipient,
       userId,
       authOptions: accessAuth,
@@ -147,7 +147,7 @@ export const getDocumentAndRecipientByToken = async ({
     },
   });
 
-  const recipient = result.Recipient[0];
+  const [recipient] = result.Recipient;
 
   // Sanity check, should not be possible.
   if (!recipient) {
@@ -159,7 +159,7 @@ export const getDocumentAndRecipientByToken = async ({
   if (requireAccessAuth) {
     documentAccessValid = await isRecipientAuthorized({
       type: 'ACCESS',
-      document: result,
+      documentAuthOptions: result.authOptions,
       recipient,
       userId,
       authOptions: accessAuth,

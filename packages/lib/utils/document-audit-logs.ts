@@ -8,7 +8,7 @@ import type {
   RecipientRole,
 } from '@documenso/prisma/client';
 
-import { RECIPIENT_ROLES_DESCRIPTION } from '../constants/recipient-roles';
+import { RECIPIENT_ROLES_DESCRIPTION_ENG } from '../constants/recipient-roles';
 import type {
   TDocumentAuditLog,
   TDocumentAuditLogDocumentMetaDiffSchema,
@@ -268,6 +268,7 @@ export const formatDocumentAuditLogActionString = (
  *
  * Provide a userId to prefix the action with the user, example 'X did Y'.
  */
+// Todo: Translations.
 export const formatDocumentAuditLogAction = (auditLog: TDocumentAuditLog, userId?: number) => {
   let prefix = userId === auditLog.userId ? 'You' : auditLog.name || auditLog.email || '';
 
@@ -332,13 +333,21 @@ export const formatDocumentAuditLogAction = (auditLog: TDocumentAuditLog, userId
       anonymous: 'Document title updated',
       identified: 'updated the document title',
     }))
+    .with({ type: DOCUMENT_AUDIT_LOG_TYPE.DOCUMENT_EXTERNAL_ID_UPDATED }, () => ({
+      anonymous: 'Document external ID updated',
+      identified: 'updated the document external ID',
+    }))
     .with({ type: DOCUMENT_AUDIT_LOG_TYPE.DOCUMENT_SENT }, () => ({
       anonymous: 'Document sent',
       identified: 'sent the document',
     }))
+    .with({ type: DOCUMENT_AUDIT_LOG_TYPE.DOCUMENT_MOVED_TO_TEAM }, () => ({
+      anonymous: 'Document moved to team',
+      identified: 'moved the document to team',
+    }))
     .with({ type: DOCUMENT_AUDIT_LOG_TYPE.DOCUMENT_RECIPIENT_COMPLETED }, ({ data }) => {
       // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-      const action = RECIPIENT_ROLES_DESCRIPTION[data.recipientRole as RecipientRole]?.actioned;
+      const action = RECIPIENT_ROLES_DESCRIPTION_ENG[data.recipientRole as RecipientRole]?.actioned;
 
       const value = action ? `${action.toLowerCase()} the document` : 'completed their task';
 

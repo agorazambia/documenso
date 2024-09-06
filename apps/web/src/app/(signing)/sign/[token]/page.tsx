@@ -1,6 +1,7 @@
 import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 
+import { setupI18nSSR } from '@documenso/lib/client-only/providers/i18n.server';
 import { DOCUMENSO_ENCRYPTION_KEY } from '@documenso/lib/constants/crypto';
 import { getServerComponentSession } from '@documenso/lib/next-auth/get-server-component-session';
 import { getDocumentAndSenderByToken } from '@documenso/lib/server-only/document/get-document-by-token';
@@ -10,6 +11,7 @@ import { getCompletedFieldsForToken } from '@documenso/lib/server-only/field/get
 import { getFieldsForToken } from '@documenso/lib/server-only/field/get-fields-for-token';
 import { getRecipientByToken } from '@documenso/lib/server-only/recipient/get-recipient-by-token';
 import { getRecipientSignatures } from '@documenso/lib/server-only/recipient/get-recipient-signatures';
+import { getUserByEmail } from '@documenso/lib/server-only/user/get-user-by-email';
 import { symmetricDecrypt } from '@documenso/lib/universal/crypto';
 import { extractNextHeaderRequestMetadata } from '@documenso/lib/universal/extract-request-metadata';
 import { extractDocumentAuthMethods } from '@documenso/lib/utils/document-auth';
@@ -28,6 +30,8 @@ export type SigningPageProps = {
 };
 
 export default async function SigningPage({ params: { token } }: SigningPageProps) {
+  setupI18nSSR();
+
   if (!token) {
     return notFound();
   }
@@ -65,13 +69,19 @@ export default async function SigningPage({ params: { token } }: SigningPageProp
 
   const isDocumentAccessValid = await isRecipientAuthorized({
     type: 'ACCESS',
-    document,
+    documentAuthOptions: document.authOptions,
     recipient,
     userId: user?.id,
   });
 
+  let recipientHasAccount: boolean | null = null;
+
   if (!isDocumentAccessValid) {
-    return <SigningAuthPageView email={recipient.email} />;
+    recipientHasAccount = await getUserByEmail({ email: recipient?.email })
+      .then((user) => !!user)
+      .catch(() => false);
+
+    return <SigningAuthPageView email={recipient.email} emailHasAccount={!!recipientHasAccount} />;
   }
 
   await viewedDocument({
@@ -126,7 +136,11 @@ export default async function SigningPage({ params: { token } }: SigningPageProp
       fullName={user?.email === recipient.email ? user.name : recipient.name}
       signature={user?.email === recipient.email ? user.signature : undefined}
     >
-      <DocumentAuthProvider document={document} recipient={recipient} user={user}>
+      <DocumentAuthProvider
+        documentAuthOptions={document.authOptions}
+        recipient={recipient}
+        user={user}
+      >
         <SigningPageView
           recipient={recipient}
           document={document}

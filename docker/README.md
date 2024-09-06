@@ -41,7 +41,7 @@ volumes:
 1. Run the following command to start the containers:
 
 ```
-docker-compose --env-file ./.env -d up
+docker-compose --env-file ./.env up -d
 ```
 
 This will start the PostgreSQL database and the Documenso application containers.
@@ -74,6 +74,7 @@ docker run -d \
   -e NEXT_PRIVATE_ENCRYPTION_KEY="<your-next-private-encryption-key>"
   -e NEXT_PRIVATE_ENCRYPTION_SECONDARY_KEY="<your-next-private-encryption-secondary-key>"
   -e NEXT_PUBLIC_WEBAPP_URL="<your-next-public-webapp-url>"
+  -e NEXT_PRIVATE_INTERNAL_WEBAPP_URL="http://localhost:3000"
   -e NEXT_PRIVATE_DATABASE_URL="<your-next-private-database-url>"
   -e NEXT_PRIVATE_DIRECT_DATABASE_URL="<your-next-private-database-url>"
   -e NEXT_PRIVATE_SMTP_TRANSPORT="<your-next-private-smtp-transport>"
@@ -128,6 +129,7 @@ Here's a markdown table documenting all the provided environment variables:
 | `NEXT_PRIVATE_SMTP_APIKEY_USER`              | The API key user for the SMTP server for the `smtp-api` transport.                                  |
 | `NEXT_PRIVATE_SMTP_APIKEY`                   | The API key for the SMTP server for the `smtp-api` transport.                                       |
 | `NEXT_PRIVATE_SMTP_SECURE`                   | Whether to force the use of TLS for the SMTP server for SMTP transports.                            |
+| `NEXT_PRIVATE_SMTP_UNSAFE_IGNORE_TLS`        | If true, then no TLS will be used (even if STARTTLS is supported)                                   |
 | `NEXT_PRIVATE_SMTP_FROM_ADDRESS`             | The email address for the "from" address.                                                           |
 | `NEXT_PRIVATE_SMTP_FROM_NAME`                | The sender name for the "from" address.                                                             |
 | `NEXT_PRIVATE_RESEND_API_KEY`                | The API key for Resend.com for the `resend` transport.                                              |

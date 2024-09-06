@@ -1,5 +1,8 @@
 import Link from 'next/link';
 
+import { Trans } from '@lingui/macro';
+
+import { NEXT_PUBLIC_WEBAPP_URL } from '@documenso/lib/constants/app';
 import { getRequiredServerComponentSession } from '@documenso/lib/next-auth/get-server-component-session';
 import { findDocuments } from '@documenso/lib/server-only/document/find-documents';
 import type { PeriodSelectorValue } from '@documenso/lib/server-only/document/find-documents';
@@ -10,7 +13,7 @@ import { formatDocumentsPath } from '@documenso/lib/utils/teams';
 import type { Team, TeamEmail } from '@documenso/prisma/client';
 import { isExtendedDocumentStatus } from '@documenso/prisma/guards/is-extended-document-status';
 import { ExtendedDocumentStatus } from '@documenso/prisma/types/extended-document-status';
-import { Avatar, AvatarFallback } from '@documenso/ui/primitives/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@documenso/ui/primitives/avatar';
 import { Tabs, TabsList, TabsTrigger } from '@documenso/ui/primitives/tabs';
 
 import { PeriodSelector } from '~/components/(dashboard)/period-selector/period-selector';
@@ -94,13 +97,18 @@ export const DocumentsPageView = async ({ searchParams = {}, team }: DocumentsPa
         <div className="flex flex-row items-center">
           {team && (
             <Avatar className="dark:border-border mr-3 h-12 w-12 border-2 border-solid border-white">
+              {team.avatarImageId && (
+                <AvatarImage src={`${NEXT_PUBLIC_WEBAPP_URL()}/api/avatar/${team.avatarImageId}`} />
+              )}
               <AvatarFallback className="text-xs text-gray-400">
                 {team.name.slice(0, 1)}
               </AvatarFallback>
             </Avatar>
           )}
 
-          <h1 className="text-4xl font-semibold">Documents</h1>
+          <h1 className="text-4xl font-semibold">
+            <Trans>Documents</Trans>
+          </h1>
         </div>
 
         <div className="-m-1 flex flex-wrap gap-x-4 gap-y-6 overflow-hidden p-1">

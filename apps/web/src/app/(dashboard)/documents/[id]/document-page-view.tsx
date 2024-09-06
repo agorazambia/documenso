@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
+import { Plural, Trans } from '@lingui/macro';
+import { useLingui } from '@lingui/react';
 import { ChevronLeft, Clock9, Users2 } from 'lucide-react';
 import { match } from 'ts-pattern';
 
@@ -8,7 +10,7 @@ import { DOCUMENSO_ENCRYPTION_KEY } from '@documenso/lib/constants/crypto';
 import { getRequiredServerComponentSession } from '@documenso/lib/next-auth/get-server-component-session';
 import { getDocumentById } from '@documenso/lib/server-only/document/get-document-by-id';
 import { getServerComponentFlag } from '@documenso/lib/server-only/feature-flags/get-server-component-feature-flag';
-import { getCompletedFieldsForDocument } from '@documenso/lib/server-only/field/get-completed-fields-for-document';
+import { getFieldsForDocument } from '@documenso/lib/server-only/field/get-fields-for-document';
 import { getRecipientsForDocument } from '@documenso/lib/server-only/recipient/get-recipients-for-document';
 import { symmetricDecrypt } from '@documenso/lib/universal/crypto';
 import { formatDocumentsPath } from '@documenso/lib/utils/teams';
@@ -42,6 +44,7 @@ export type DocumentPageViewProps = {
 
 export const DocumentPageView = async ({ params, team }: DocumentPageViewProps) => {
   const { id } = params;
+  const { _ } = useLingui();
 
   const documentId = Number(id);
 
@@ -86,14 +89,15 @@ export const DocumentPageView = async ({ params, team }: DocumentPageViewProps) 
     documentMeta.password = securePassword;
   }
 
-  const [recipients, completedFields] = await Promise.all([
+  const [recipients, fields] = await Promise.all([
     getRecipientsForDocument({
       documentId,
       teamId: team?.id,
       userId: user.id,
     }),
-    getCompletedFieldsForDocument({
+    getFieldsForDocument({
       documentId,
+      userId: user.id,
     }),
   ]);
 
@@ -106,10 +110,10 @@ export const DocumentPageView = async ({ params, team }: DocumentPageViewProps) 
     <div className="mx-auto -mt-4 w-full max-w-screen-xl px-4 md:px-8">
       <Link href={documentRootPath} className="flex items-center text-[#7AC455] hover:opacity-80">
         <ChevronLeft className="mr-2 inline-block h-5 w-5" />
-        Documents
+        <Trans>Documents</Trans>
       </Link>
 
-      <div className="flex flex-row justify-between">
+      <div className="flex flex-row justify-between truncate">
         <div>
           <h1 className="mt-4 truncate text-2xl font-semibold md:text-3xl" title={document.title}>
             {document.title}
@@ -131,12 +135,18 @@ export const DocumentPageView = async ({ params, team }: DocumentPageViewProps) 
                   documentStatus={document.status}
                   position="bottom"
                 >
-                  <span>{recipients.length} Recipient(s)</span>
+                  <span>
+                    <Trans>{recipients.length} Recipient(s)</Trans>
+                  </span>
                 </StackAvatarsWithTooltip>
               </div>
             )}
 
-            {document.deletedAt && <Badge variant="destructive">Document deleted</Badge>}
+            {document.deletedAt && (
+              <Badge variant="destructive">
+                <Trans>Document deleted</Trans>
+              </Badge>
+            )}
           </div>
         </div>
 
@@ -145,7 +155,7 @@ export const DocumentPageView = async ({ params, team }: DocumentPageViewProps) 
             <DocumentHistorySheet documentId={document.id} userId={user.id}>
               <Button variant="outline">
                 <Clock9 className="mr-1.5 h-4 w-4" />
-                Document history
+                <Trans>Document history</Trans>
               </Button>
             </DocumentHistorySheet>
           </div>
@@ -163,10 +173,7 @@ export const DocumentPageView = async ({ params, team }: DocumentPageViewProps) 
         </Card>
 
         {document.status === DocumentStatus.PENDING && (
-          <DocumentReadOnlyFields
-            fields={completedFields}
-            documentMeta={document.documentMeta || undefined}
-          />
+          <DocumentReadOnlyFields fields={fields} documentMeta={documentMeta || undefined} />
         )}
 
         <div className="col-span-12 lg:col-span-6 xl:col-span-5">
@@ -174,7 +181,7 @@ export const DocumentPageView = async ({ params, team }: DocumentPageViewProps) 
             <section className="border-border bg-widget flex flex-col rounded-xl border pb-4 pt-6">
               <div className="flex flex-row items-center justify-between px-4">
                 <h3 className="text-foreground text-2xl font-semibold">
-                  Document {FRIENDLY_STATUS_MAP[document.status].label.toLowerCase()}
+                  {_(FRIENDLY_STATUS_MAP[document.status].labelExtended)}
                 </h3>
 
                 <DocumentPageViewDropdown document={documentWithRecipients} team={team} />
@@ -182,22 +189,24 @@ export const DocumentPageView = async ({ params, team }: DocumentPageViewProps) 
 
               <p className="text-muted-foreground mt-2 px-4 text-sm ">
                 {match(document.status)
-                  .with(
-                    DocumentStatus.COMPLETED,
-                    () => 'This document has been signed by all recipients',
-                  )
-                  .with(
-                    DocumentStatus.DRAFT,
-                    () => 'This document is currently a draft and has not been sent',
-                  )
+                  .with(DocumentStatus.COMPLETED, () => (
+                    <Trans>This document has been signed by all recipients</Trans>
+                  ))
+                  .with(DocumentStatus.DRAFT, () => (
+                    <Trans>This document is currently a draft and has not been sent</Trans>
+                  ))
                   .with(DocumentStatus.PENDING, () => {
                     const pendingRecipients = recipients.filter(
                       (recipient) => recipient.signingStatus === 'NOT_SIGNED',
                     );
 
-                    return `Waiting on ${pendingRecipients.length} recipient${
-                      pendingRecipients.length > 1 ? 's' : ''
-                    }`;
+                    return (
+                      <Plural
+                        value={pendingRecipients.length}
+                        one="Waiting on 1 recipient"
+                        other="Waiting on # recipients"
+                      />
+                    );
                   })
                   .exhaustive()}
               </p>

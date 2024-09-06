@@ -5,7 +5,8 @@ import type { HTMLAttributes } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-import { Braces, CreditCard, Lock, User, Users, Webhook } from 'lucide-react';
+import { Trans } from '@lingui/macro';
+import { Braces, CreditCard, Globe2Icon, Lock, User, Users, Webhook } from 'lucide-react';
 
 import { useFeatureFlags } from '@documenso/lib/client-only/providers/feature-flag';
 import { cn } from '@documenso/ui/lib/utils';
@@ -19,6 +20,7 @@ export const DesktopNav = ({ className, ...props }: DesktopNavProps) => {
   const { getFlag } = useFeatureFlags();
 
   const isBillingEnabled = getFlag('app_billing');
+  const isPublicProfileEnabled = getFlag('app_public_profile');
 
   return (
     <div className={cn('flex flex-col gap-y-2', className)} {...props}>
@@ -31,9 +33,24 @@ export const DesktopNav = ({ className, ...props }: DesktopNavProps) => {
           )}
         >
           <User className="mr-2 h-5 w-5" />
-          Profile
+          <Trans>Profile</Trans>
         </Button>
       </Link>
+
+      {isPublicProfileEnabled && (
+        <Link href="/settings/public-profile">
+          <Button
+            variant="ghost"
+            className={cn(
+              'w-full justify-start',
+              pathname?.startsWith('/settings/public-profile') && 'bg-secondary',
+            )}
+          >
+            <Globe2Icon className="mr-2 h-5 w-5" />
+            <Trans>Public Profile</Trans>
+          </Button>
+        </Link>
+      )}
 
       <Link href="/settings/teams">
         <Button
@@ -44,7 +61,7 @@ export const DesktopNav = ({ className, ...props }: DesktopNavProps) => {
           )}
         >
           <Users className="mr-2 h-5 w-5" />
-          Teams
+          <Trans>Teams</Trans>
         </Button>
       </Link>
 
@@ -57,7 +74,7 @@ export const DesktopNav = ({ className, ...props }: DesktopNavProps) => {
           )}
         >
           <Lock className="mr-2 h-5 w-5" />
-          Security
+          <Trans>Security</Trans>
         </Button>
       </Link>
 
@@ -70,7 +87,7 @@ export const DesktopNav = ({ className, ...props }: DesktopNavProps) => {
           )}
         >
           <Braces className="mr-2 h-5 w-5" />
-          API Tokens
+          <Trans>API Tokens</Trans>
         </Button>
       </Link>
 
@@ -83,7 +100,7 @@ export const DesktopNav = ({ className, ...props }: DesktopNavProps) => {
           )}
         >
           <Webhook className="mr-2 h-5 w-5" />
-          Webhooks
+          <Trans>Webhooks</Trans>
         </Button>
       </Link>
 
@@ -97,7 +114,7 @@ export const DesktopNav = ({ className, ...props }: DesktopNavProps) => {
             )}
           >
             <CreditCard className="mr-2 h-5 w-5" />
-            Billing
+            <Trans>Billing</Trans>
           </Button>
         </Link>
       )}

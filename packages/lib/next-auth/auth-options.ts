@@ -14,11 +14,12 @@ import { prisma } from '@documenso/prisma';
 import { IdentityProvider, UserSecurityAuditLogType } from '@documenso/prisma/client';
 
 import { AppError, AppErrorCode } from '../errors/app-error';
+import { jobsClient } from '../jobs/client';
 import { isTwoFactorAuthenticationEnabled } from '../server-only/2fa/is-2fa-availble';
 import { validateTwoFactorAuthentication } from '../server-only/2fa/validate-2fa';
+import { decryptSecondaryData } from '../server-only/crypto/decrypt';
 import { getMostRecentVerificationTokenByUserId } from '../server-only/user/get-most-recent-verification-token-by-user-id';
 import { getUserByEmail } from '../server-only/user/get-user-by-email';
-import { sendConfirmationToken } from '../server-only/user/send-confirmation-token';
 import type { TAuthenticationResponseJSONSchema } from '../types/webauthn';
 import { ZAuthenticationResponseJSONSchema } from '../types/webauthn';
 import { extractNextAuthRequestMetadata } from '../universal/extract-request-metadata';
@@ -108,7 +109,12 @@ export const NEXT_AUTH_OPTIONS: AuthOptions = {
             mostRecentToken.expires.valueOf() <= Date.now() ||
             DateTime.fromJSDate(mostRecentToken.createdAt).diffNow('minutes').minutes > -5
           ) {
-            await sendConfirmationToken({ email });
+            await jobsClient.triggerJob({
+              name: 'send.signup.confirmation.email',
+              payload: {
+                email: user.email,
+              },
+            });
           }
 
           throw new Error(ErrorCode.UNVERIFIED_EMAIL);
@@ -136,6 +142,33 @@ export const NEXT_AUTH_OPTIONS: AuthOptions = {
         };
       },
     }),
+    {
+      id: 'oidc',
+      name: 'OIDC',
+      type: 'oauth',
+
+      wellKnown: process.env.NEXT_PRIVATE_OIDC_WELL_KNOWN,
+      clientId: process.env.NEXT_PRIVATE_OIDC_CLIENT_ID,
+      clientSecret: process.env.NEXT_PRIVATE_OIDC_CLIENT_SECRET,
+
+      authorization: { params: { scope: 'openid email profile' } },
+      checks: ['pkce', 'state'],
+
+      idToken: true,
+      allowDangerousEmailAccountLinking: true,
+
+      profile(profile) {
+        return {
+          id: profile.sub,
+          email: profile.email || profile.preferred_username,
+          name: profile.name || `${profile.given_name} ${profile.family_name}`.trim(),
+          emailVerified:
+            process.env.NEXT_PRIVATE_OIDC_SKIP_VERIFY === 'true' || profile.email_verified
+              ? new Date().toISOString()
+              : null,
+        };
+      },
+    },
     CredentialsProvider({
       id: 'webauthn',
       name: 'Keypass',
@@ -243,6 +276,55 @@ export const NEXT_AUTH_OPTIONS: AuthOptions = {
         } satisfies User;
       },
     }),
+    CredentialsProvider({
+      id: 'manual',
+      name: 'Manual',
+      credentials: {
+        credential: { label: 'Credential', type: 'credential' },
+      },
+      async authorize(credentials, req) {
+        const credential = credentials?.credential;
+
+        if (typeof credential !== 'string' || credential.length === 0) {
+          throw new AppError(AppErrorCode.INVALID_REQUEST);
+        }
+
+        const decryptedCredential = decryptSecondaryData(credential);
+
+        if (!decryptedCredential) {
+          throw new AppError(AppErrorCode.INVALID_REQUEST);
+        }
+
+        const parsedCredential = JSON.parse(decryptedCredential);
+
+        if (typeof parsedCredential !== 'object' || parsedCredential === null) {
+          throw new AppError(AppErrorCode.INVALID_REQUEST);
+        }
+
+        const { userId, email } = parsedCredential;
+
+        if (typeof userId !== 'number' || typeof email !== 'string') {
+          throw new AppError(AppErrorCode.INVALID_REQUEST);
+        }
+
+        const user = await prisma.user.findFirst({
+          where: {
+            id: userId,
+          },
+        });
+
+        if (!user) {
+          throw new AppError(AppErrorCode.INVALID_REQUEST);
+        }
+
+        return {
+          id: Number(user.id),
+          email: user.email,
+          name: user.name,
+          emailVerified: user.emailVerified?.toISOString() ?? null,
+        } satisfies User;
+      },
+    }),
   ],
   callbacks: {
     async jwt({ token, user, trigger, account }) {
@@ -332,6 +414,12 @@ export const NEXT_AUTH_OPTIONS: AuthOptions = {
     },
 
     async signIn({ user }) {
+      // This statement appears above so we can stil allow `oidc` connections
+      // while other signups are disabled.
+      if (env('NEXT_PRIVATE_OIDC_ALLOW_SIGNUP') === 'true') {
+        return true;
+      }
+
       // We do this to stop OAuth providers from creating an account
       // when signups are disabled
       if (env('NEXT_PUBLIC_DISABLE_SIGNUP') === 'true') {

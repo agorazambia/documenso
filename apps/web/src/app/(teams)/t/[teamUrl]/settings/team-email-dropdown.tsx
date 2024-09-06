@@ -1,7 +1,7 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-
+import { Trans, msg } from '@lingui/macro';
+import { useLingui } from '@lingui/react';
 import { Edit, Loader, Mail, MoreHorizontal, X } from 'lucide-react';
 
 import type { getTeamByUrl } from '@documenso/lib/server-only/team/get-team';
@@ -14,6 +14,7 @@ import {
 } from '@documenso/ui/primitives/dropdown-menu';
 import { useToast } from '@documenso/ui/primitives/use-toast';
 
+import { RemoveTeamEmailDialog } from '~/components/(teams)/dialogs/remove-team-email-dialog';
 import { UpdateTeamEmailDialog } from '~/components/(teams)/dialogs/update-team-email-dialog';
 
 export type TeamsSettingsPageProps = {
@@ -21,78 +22,27 @@ export type TeamsSettingsPageProps = {
 };
 
 export const TeamEmailDropdown = ({ team }: TeamsSettingsPageProps) => {
-  const router = useRouter();
-
+  const { _ } = useLingui();
   const { toast } = useToast();
 
   const { mutateAsync: resendEmailVerification, isLoading: isResendingEmailVerification } =
     trpc.team.resendTeamEmailVerification.useMutation({
       onSuccess: () => {
         toast({
-          title: 'Success',
-          description: 'Email verification has been resent',
+          title: _(msg`Success`),
+          description: _(msg`Email verification has been resent`),
           duration: 5000,
         });
       },
       onError: () => {
         toast({
-          title: 'Something went wrong',
+          title: _(msg`Something went wrong`),
+          description: _(msg`Unable to resend verification at this time. Please try again.`),
           variant: 'destructive',
           duration: 10000,
-          description: 'Unable to resend verification at this time. Please try again.',
         });
       },
     });
-
-  const { mutateAsync: deleteTeamEmail, isLoading: isDeletingTeamEmail } =
-    trpc.team.deleteTeamEmail.useMutation({
-      onSuccess: () => {
-        toast({
-          title: 'Success',
-          description: 'Team email has been removed',
-          duration: 5000,
-        });
-      },
-      onError: () => {
-        toast({
-          title: 'Something went wrong',
-          variant: 'destructive',
-          duration: 10000,
-          description: 'Unable to remove team email at this time. Please try again.',
-        });
-      },
-    });
-
-  const { mutateAsync: deleteTeamEmailVerification, isLoading: isDeletingTeamEmailVerification } =
-    trpc.team.deleteTeamEmailVerification.useMutation({
-      onSuccess: () => {
-        toast({
-          title: 'Success',
-          description: 'Email verification has been removed',
-          duration: 5000,
-        });
-      },
-      onError: () => {
-        toast({
-          title: 'Something went wrong',
-          variant: 'destructive',
-          duration: 10000,
-          description: 'Unable to remove email verification at this time. Please try again.',
-        });
-      },
-    });
-
-  const onRemove = async () => {
-    if (team.teamEmail) {
-      await deleteTeamEmail({ teamId: team.id });
-    }
-
-    if (team.emailVerification) {
-      await deleteTeamEmailVerification({ teamId: team.id });
-    }
-
-    router.refresh();
-  };
 
   return (
     <DropdownMenu>
@@ -114,7 +64,7 @@ export const TeamEmailDropdown = ({ team }: TeamsSettingsPageProps) => {
             ) : (
               <Mail className="mr-2 h-4 w-4" />
             )}
-            Resend verification
+            <Trans>Resend verification</Trans>
           </DropdownMenuItem>
         )}
 
@@ -124,19 +74,22 @@ export const TeamEmailDropdown = ({ team }: TeamsSettingsPageProps) => {
             trigger={
               <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                 <Edit className="mr-2 h-4 w-4" />
-                Edit
+                <Trans>Edit</Trans>
               </DropdownMenuItem>
             }
           />
         )}
 
-        <DropdownMenuItem
-          disabled={isDeletingTeamEmail || isDeletingTeamEmailVerification}
-          onClick={async () => onRemove()}
-        >
-          <X className="mr-2 h-4 w-4" />
-          Remove
-        </DropdownMenuItem>
+        <RemoveTeamEmailDialog
+          team={team}
+          teamName={team.name}
+          trigger={
+            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+              <X className="mr-2 h-4 w-4" />
+              <Trans>Remove</Trans>
+            </DropdownMenuItem>
+          }
+        />
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -14,6 +14,7 @@ import { findDocumentAuditLogs } from '@documenso/lib/server-only/document/find-
 import { getDocumentById } from '@documenso/lib/server-only/document/get-document-by-id';
 import { getDocumentAndSenderByToken } from '@documenso/lib/server-only/document/get-document-by-token';
 import { getDocumentWithDetailsById } from '@documenso/lib/server-only/document/get-document-with-details-by-id';
+import { moveDocumentToTeam } from '@documenso/lib/server-only/document/move-document-to-team';
 import { resendDocument } from '@documenso/lib/server-only/document/resend-document';
 import { searchDocumentsWithKeyword } from '@documenso/lib/server-only/document/search-documents-with-keyword';
 import { sendDocument } from '@documenso/lib/server-only/document/send-document';
@@ -28,10 +29,12 @@ import {
   ZCreateDocumentMutationSchema,
   ZDeleteDraftDocumentMutationSchema as ZDeleteDocumentMutationSchema,
   ZDownloadAuditLogsMutationSchema,
+  ZDownloadCertificateMutationSchema,
   ZFindDocumentAuditLogsQuerySchema,
   ZGetDocumentByIdQuerySchema,
   ZGetDocumentByTokenQuerySchema,
   ZGetDocumentWithDetailsByIdQuerySchema,
+  ZMoveDocumentsToTeamSchema,
   ZResendDocumentMutationSchema,
   ZSearchDocumentsMutationSchema,
   ZSendDocumentMutationSchema,
@@ -154,6 +157,33 @@ export const documentRouter = router({
         throw new TRPCError({
           code: 'BAD_REQUEST',
           message: 'We were unable to delete this document. Please try again later.',
+        });
+      }
+    }),
+
+  moveDocumentToTeam: authenticatedProcedure
+    .input(ZMoveDocumentsToTeamSchema)
+    .mutation(async ({ input, ctx }) => {
+      try {
+        const { documentId, teamId } = input;
+        const userId = ctx.user.id;
+
+        return await moveDocumentToTeam({
+          documentId,
+          teamId,
+          userId,
+          requestMetadata: extractNextApiRequestMetadata(ctx.req),
+        });
+      } catch (err) {
+        console.error(err);
+
+        if (err instanceof TRPCError) {
+          throw err;
+        }
+
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'We were unable to move this document. Please try again later.',
         });
       }
     }),
@@ -382,7 +412,14 @@ export const documentRouter = router({
           id: documentId,
           userId: ctx.user.id,
           teamId,
-        });
+        }).catch(() => null);
+
+        if (!document || (teamId && document.teamId !== teamId)) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'You do not have access to this document.',
+          });
+        }
 
         const encrypted = encryptSecondaryData({
           data: document.id.toString(),
@@ -404,7 +441,7 @@ export const documentRouter = router({
     }),
 
   downloadCertificate: authenticatedProcedure
-    .input(ZDownloadAuditLogsMutationSchema)
+    .input(ZDownloadCertificateMutationSchema)
     .mutation(async ({ input, ctx }) => {
       try {
         const { documentId, teamId } = input;

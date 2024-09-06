@@ -2,7 +2,14 @@ import { DateTime } from 'luxon';
 
 import { prisma } from '@documenso/prisma';
 
-import { sendConfirmationToken } from './send-confirmation-token';
+import { jobsClient } from '../../jobs/client';
+
+export const EMAIL_VERIFICATION_STATE = {
+  NOT_FOUND: 'NOT_FOUND',
+  VERIFIED: 'VERIFIED',
+  EXPIRED: 'EXPIRED',
+  ALREADY_VERIFIED: 'ALREADY_VERIFIED',
+} as const;
 
 export type VerifyEmailProps = {
   token: string;
@@ -19,7 +26,7 @@ export const verifyEmail = async ({ token }: VerifyEmailProps) => {
   });
 
   if (!verificationToken) {
-    return null;
+    return EMAIL_VERIFICATION_STATE.NOT_FOUND;
   }
 
   // check if the token is valid or expired
@@ -40,13 +47,22 @@ export const verifyEmail = async ({ token }: VerifyEmailProps) => {
       !mostRecentToken ||
       DateTime.now().minus({ hours: 1 }).toJSDate() > mostRecentToken.createdAt
     ) {
-      await sendConfirmationToken({ email: verificationToken.user.email });
+      await jobsClient.triggerJob({
+        name: 'send.signup.confirmation.email',
+        payload: {
+          email: verificationToken.user.email,
+        },
+      });
     }
 
-    return valid;
+    return EMAIL_VERIFICATION_STATE.EXPIRED;
   }
 
-  const [updatedUser, deletedToken] = await prisma.$transaction([
+  if (verificationToken.completed) {
+    return EMAIL_VERIFICATION_STATE.ALREADY_VERIFIED;
+  }
+
+  const [updatedUser] = await prisma.$transaction([
     prisma.user.update({
       where: {
         id: verificationToken.userId,
@@ -55,16 +71,28 @@ export const verifyEmail = async ({ token }: VerifyEmailProps) => {
         emailVerified: new Date(),
       },
     }),
+    prisma.verificationToken.updateMany({
+      where: {
+        userId: verificationToken.userId,
+      },
+      data: {
+        completed: true,
+      },
+    }),
+    // Tidy up old expired tokens
     prisma.verificationToken.deleteMany({
       where: {
         userId: verificationToken.userId,
+        expires: {
+          lt: new Date(),
+        },
       },
     }),
   ]);
 
-  if (!updatedUser || !deletedToken) {
+  if (!updatedUser) {
     throw new Error('Something went wrong while verifying your email. Please try again.');
   }
 
-  return !!updatedUser && !!deletedToken;
+  return EMAIL_VERIFICATION_STATE.VERIFIED;
 };

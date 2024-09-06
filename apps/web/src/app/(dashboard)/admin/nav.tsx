@@ -5,7 +5,8 @@ import type { HTMLAttributes } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-import { BarChart3, FileStack, Settings, User2, Wallet2 } from 'lucide-react';
+import { Trans } from '@lingui/macro';
+import { BarChart3, FileStack, Settings, Users, Wallet2 } from 'lucide-react';
 
 import { cn } from '@documenso/ui/lib/utils';
 import { Button } from '@documenso/ui/primitives/button';
@@ -33,7 +34,7 @@ export const AdminNav = ({ className, ...props }: AdminNavProps) => {
       >
         <Link href="/admin/stats">
           <BarChart3 className="mr-2 h-5 w-5" />
-          Stats
+          <Trans>Stats</Trans>
         </Link>
       </Button>
 
@@ -46,8 +47,8 @@ export const AdminNav = ({ className, ...props }: AdminNavProps) => {
         asChild
       >
         <Link href="/admin/users">
-          <User2 className="mr-2 h-5 w-5" />
-          Users
+          <Users className="mr-2 h-5 w-5" />
+          <Trans>Users</Trans>
         </Link>
       </Button>
 
@@ -61,7 +62,7 @@ export const AdminNav = ({ className, ...props }: AdminNavProps) => {
       >
         <Link href="/admin/documents">
           <FileStack className="mr-2 h-5 w-5" />
-          Documents
+          <Trans>Documents</Trans>
         </Link>
       </Button>
 
@@ -75,7 +76,7 @@ export const AdminNav = ({ className, ...props }: AdminNavProps) => {
       >
         <Link href="/admin/subscriptions">
           <Wallet2 className="mr-2 h-5 w-5" />
-          Subscriptions
+          <Trans>Subscriptions</Trans>
         </Link>
       </Button>
 
@@ -89,7 +90,7 @@ export const AdminNav = ({ className, ...props }: AdminNavProps) => {
       >
         <Link href="/admin/site-settings">
           <Settings className="mr-2 h-5 w-5" />
-          Site Settings
+          <Trans>Site Settings</Trans>
         </Link>
       </Button>
     </div>

@@ -4,32 +4,51 @@ import { useEffect, useState, useTransition } from 'react';
 
 import { useRouter } from 'next/navigation';
 
-import { Loader } from 'lucide-react';
+import { Plural, Trans, msg } from '@lingui/macro';
+import { useLingui } from '@lingui/react';
+import { Loader, Type } from 'lucide-react';
 
+import { validateTextField } from '@documenso/lib/advanced-fields-validation/validate-text';
 import { DO_NOT_INVALIDATE_QUERY_ON_MUTATION } from '@documenso/lib/constants/trpc';
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
 import type { TRecipientActionAuth } from '@documenso/lib/types/document-auth';
+import { ZTextFieldMeta } from '@documenso/lib/types/field-meta';
 import type { Recipient } from '@documenso/prisma/client';
-import type { FieldWithSignature } from '@documenso/prisma/types/field-with-signature';
+import type { FieldWithSignatureAndFieldMeta } from '@documenso/prisma/types/field-with-signature-and-fieldmeta';
 import { trpc } from '@documenso/trpc/react';
+import type {
+  TRemovedSignedFieldWithTokenMutationSchema,
+  TSignFieldWithTokenMutationSchema,
+} from '@documenso/trpc/server/field-router/schema';
+import { cn } from '@documenso/ui/lib/utils';
 import { Button } from '@documenso/ui/primitives/button';
 import { Dialog, DialogContent, DialogFooter, DialogTitle } from '@documenso/ui/primitives/dialog';
-import { Input } from '@documenso/ui/primitives/input';
-import { Label } from '@documenso/ui/primitives/label';
+import { Textarea } from '@documenso/ui/primitives/textarea';
 import { useToast } from '@documenso/ui/primitives/use-toast';
 
 import { useRequiredDocumentAuthContext } from './document-auth-provider';
 import { SigningFieldContainer } from './signing-field-container';
 
 export type TextFieldProps = {
-  field: FieldWithSignature;
+  field: FieldWithSignatureAndFieldMeta;
   recipient: Recipient;
+  onSignField?: (value: TSignFieldWithTokenMutationSchema) => Promise<void> | void;
+  onUnsignField?: (value: TRemovedSignedFieldWithTokenMutationSchema) => Promise<void> | void;
 };
 
-export const TextField = ({ field, recipient }: TextFieldProps) => {
+export const TextField = ({ field, recipient, onSignField, onUnsignField }: TextFieldProps) => {
+  const { _ } = useLingui();
+  const { toast } = useToast();
+
   const router = useRouter();
 
-  const { toast } = useToast();
+  const initialErrors: Record<string, string[]> = {
+    required: [],
+    characterLimit: [],
+  };
+
+  const [errors, setErrors] = useState(initialErrors);
+  const userInputHasErrors = Object.values(errors).some((error) => error.length > 0);
 
   const { executeActionAuthProcedure } = useRequiredDocumentAuthContext();
 
@@ -43,21 +62,52 @@ export const TextField = ({ field, recipient }: TextFieldProps) => {
     isLoading: isRemoveSignedFieldWithTokenLoading,
   } = trpc.field.removeSignedFieldWithToken.useMutation(DO_NOT_INVALIDATE_QUERY_ON_MUTATION);
 
+  const parsedFieldMeta = field.fieldMeta ? ZTextFieldMeta.parse(field.fieldMeta) : null;
+
   const isLoading = isSignFieldWithTokenLoading || isRemoveSignedFieldWithTokenLoading || isPending;
+  const shouldAutoSignField =
+    (!field.inserted && parsedFieldMeta?.text) ||
+    (!field.inserted && parsedFieldMeta?.text && parsedFieldMeta?.readOnly);
 
   const [showCustomTextModal, setShowCustomTextModal] = useState(false);
-  const [localText, setLocalCustomText] = useState('');
+  const [localText, setLocalCustomText] = useState(parsedFieldMeta?.text ?? '');
 
   useEffect(() => {
     if (!showCustomTextModal) {
-      setLocalCustomText('');
+      setLocalCustomText(parsedFieldMeta?.text ?? '');
+      setErrors(initialErrors);
     }
   }, [showCustomTextModal]);
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const text = e.target.value;
+    setLocalCustomText(text);
+
+    if (parsedFieldMeta) {
+      const validationErrors = validateTextField(text, parsedFieldMeta, true);
+      setErrors({
+        required: validationErrors.filter((error) => error.includes('required')),
+        characterLimit: validationErrors.filter((error) => error.includes('character limit')),
+      });
+    }
+  };
 
   /**
    * When the user clicks the sign button in the dialog where they enter the text field.
    */
   const onDialogSignClick = () => {
+    if (parsedFieldMeta) {
+      const validationErrors = validateTextField(localText, parsedFieldMeta, true);
+
+      if (validationErrors.length > 0) {
+        setErrors({
+          required: validationErrors.filter((error) => error.includes('required')),
+          characterLimit: validationErrors.filter((error) => error.includes('character limit')),
+        });
+        return;
+      }
+    }
+
     setShowCustomTextModal(false);
 
     void executeActionAuthProcedure({
@@ -67,27 +117,39 @@ export const TextField = ({ field, recipient }: TextFieldProps) => {
   };
 
   const onPreSign = () => {
-    if (!localText) {
-      setShowCustomTextModal(true);
-      return false;
+    setShowCustomTextModal(true);
+
+    if (localText && parsedFieldMeta) {
+      const validationErrors = validateTextField(localText, parsedFieldMeta, true);
+      setErrors({
+        required: validationErrors.filter((error) => error.includes('required')),
+        characterLimit: validationErrors.filter((error) => error.includes('character limit')),
+      });
     }
 
-    return true;
+    return false;
   };
 
   const onSign = async (authOptions?: TRecipientActionAuth) => {
     try {
-      if (!localText) {
+      if (!localText || userInputHasErrors) {
         return;
       }
 
-      await signFieldWithToken({
+      const payload: TSignFieldWithTokenMutationSchema = {
         token: recipient.token,
         fieldId: field.id,
         value: localText,
         isBase64: true,
         authOptions,
-      });
+      };
+
+      if (onSignField) {
+        await onSignField(payload);
+        return;
+      }
+
+      await signFieldWithToken(payload);
 
       setLocalCustomText('');
 
@@ -102,8 +164,8 @@ export const TextField = ({ field, recipient }: TextFieldProps) => {
       console.error(err);
 
       toast({
-        title: 'Error',
-        description: 'An error occurred while signing the document.',
+        title: _(msg`Error`),
+        description: _(msg`An error occurred while signing the document.`),
         variant: 'destructive',
       });
     }
@@ -111,22 +173,59 @@ export const TextField = ({ field, recipient }: TextFieldProps) => {
 
   const onRemove = async () => {
     try {
-      await removeSignedFieldWithToken({
+      const payload: TRemovedSignedFieldWithTokenMutationSchema = {
         token: recipient.token,
         fieldId: field.id,
-      });
+      };
+
+      if (onUnsignField) {
+        await onUnsignField(payload);
+        return;
+      }
+
+      await removeSignedFieldWithToken(payload);
+
+      setLocalCustomText(parsedFieldMeta?.text ?? '');
 
       startTransition(() => router.refresh());
     } catch (err) {
       console.error(err);
 
       toast({
-        title: 'Error',
-        description: 'An error occurred while removing the text.',
+        title: _(msg`Error`),
+        description: _(msg`An error occurred while removing the text.`),
         variant: 'destructive',
       });
     }
   };
+
+  useEffect(() => {
+    if (shouldAutoSignField) {
+      void executeActionAuthProcedure({
+        onReauthFormSubmit: async (authOptions) => await onSign(authOptions),
+        actionTarget: field.type,
+      });
+    }
+  }, []);
+
+  const parsedField = field.fieldMeta ? ZTextFieldMeta.parse(field.fieldMeta) : undefined;
+
+  const labelDisplay =
+    parsedField?.label && parsedField.label.length < 20
+      ? parsedField.label
+      : parsedField?.label
+      ? parsedField?.label.substring(0, 20) + '...'
+      : undefined;
+
+  const textDisplay =
+    parsedField?.text && parsedField.text.length < 20
+      ? parsedField.text
+      : parsedField?.text
+      ? parsedField?.text.substring(0, 20) + '...'
+      : undefined;
+
+  const fieldDisplayName = labelDisplay ? labelDisplay : textDisplay;
+  const charactersRemaining = (parsedFieldMeta?.characterLimit ?? 0) - (localText.length ?? 0);
 
   return (
     <SigningFieldContainer
@@ -143,26 +242,82 @@ export const TextField = ({ field, recipient }: TextFieldProps) => {
       )}
 
       {!field.inserted && (
-        <p className="group-hover:text-primary text-muted-foreground text-lg duration-200">Text</p>
+        <p
+          className={cn(
+            'group-hover:text-primary text-muted-foreground flex flex-col items-center justify-center duration-200',
+            {
+              'group-hover:text-yellow-300': !field.inserted && !parsedFieldMeta?.required,
+              'group-hover:text-red-300': !field.inserted && parsedFieldMeta?.required,
+            },
+          )}
+        >
+          <span className="flex items-center justify-center gap-x-1">
+            <Type />
+            {fieldDisplayName || <Trans>Add text</Trans>}
+          </span>
+        </p>
       )}
 
-      {field.inserted && <p className="text-muted-foreground duration-200">{field.customText}</p>}
+      {field.inserted && (
+        <p className="text-muted-foreground dark:text-background/80 flex items-center justify-center gap-x-1 duration-200">
+          {field.customText.length < 20
+            ? field.customText
+            : field.customText.substring(0, 15) + '...'}
+        </p>
+      )}
 
       <Dialog open={showCustomTextModal} onOpenChange={setShowCustomTextModal}>
         <DialogContent>
           <DialogTitle>
-            Enter your Text <span className="text-muted-foreground">({recipient.email})</span>
+            {parsedFieldMeta?.label ? parsedFieldMeta?.label : <Trans>Add Text</Trans>}
           </DialogTitle>
 
-          <div className="">
-            <Label htmlFor="custom-text">Custom Text</Label>
-
-            <Input
+          <div>
+            <Textarea
               id="custom-text"
-              className="border-border mt-2 w-full rounded-md border"
-              onChange={(e) => setLocalCustomText(e.target.value)}
+              placeholder={parsedFieldMeta?.placeholder ?? _(msg`Enter your text here`)}
+              className={cn('mt-2 w-full rounded-md', {
+                'border-2 border-red-300 ring-2 ring-red-200 ring-offset-2 ring-offset-red-200 focus-visible:border-red-400 focus-visible:ring-4 focus-visible:ring-red-200 focus-visible:ring-offset-2 focus-visible:ring-offset-red-200':
+                  userInputHasErrors,
+              })}
+              value={localText}
+              onChange={handleTextChange}
             />
           </div>
+
+          {parsedFieldMeta?.characterLimit !== undefined &&
+            parsedFieldMeta?.characterLimit > 0 &&
+            !userInputHasErrors && (
+              <div className="text-muted-foreground text-sm">
+                <Plural
+                  value={charactersRemaining}
+                  one="1 character remaining"
+                  other={`${charactersRemaining} characters remaining`}
+                />
+              </div>
+            )}
+
+          {userInputHasErrors && (
+            <div className="text-sm">
+              {errors.required.map((error, index) => (
+                <p key={index} className="text-red-500">
+                  {error}
+                </p>
+              ))}
+              {errors.characterLimit.map((error, index) => (
+                <p key={index} className="text-red-500">
+                  {error}{' '}
+                  {charactersRemaining < 0 && (
+                    <Plural
+                      value={Math.abs(charactersRemaining)}
+                      one="(1 character over)"
+                      other="(# characters over)"
+                    />
+                  )}
+                </p>
+              ))}
+            </div>
+          )}
 
           <DialogFooter>
             <div className="mt-4 flex w-full flex-1 flex-nowrap gap-4">
@@ -175,16 +330,16 @@ export const TextField = ({ field, recipient }: TextFieldProps) => {
                   setLocalCustomText('');
                 }}
               >
-                Cancel
+                <Trans>Cancel</Trans>
               </Button>
 
               <Button
                 type="button"
                 className="flex-1"
-                disabled={!localText}
+                disabled={!localText || userInputHasErrors}
                 onClick={() => onDialogSignClick()}
               >
-                Save Text
+                <Trans>Save</Trans>
               </Button>
             </div>
           </DialogFooter>

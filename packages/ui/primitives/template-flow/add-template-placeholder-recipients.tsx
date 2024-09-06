@@ -1,15 +1,19 @@
 'use client';
 
-import React, { useId, useMemo, useState } from 'react';
+import React, { useEffect, useId, useMemo, useState } from 'react';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Trans, msg } from '@lingui/macro';
+import { useLingui } from '@lingui/react';
 import { motion } from 'framer-motion';
-import { Plus, Trash } from 'lucide-react';
+import { Link2Icon, Plus, Trash } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { useFieldArray, useForm } from 'react-hook-form';
 
 import { ZRecipientAuthOptionsSchema } from '@documenso/lib/types/document-auth';
 import { nanoid } from '@documenso/lib/universal/id';
+import { generateRecipientPlaceholder } from '@documenso/lib/utils/templates';
+import type { TemplateDirectLink } from '@documenso/prisma/client';
 import { type Field, type Recipient, RecipientRole } from '@documenso/prisma/client';
 import { AnimateGenericFadeInOut } from '@documenso/ui/components/animate/animate-generic-fade-in-out';
 import { RecipientActionAuthSelect } from '@documenso/ui/components/recipient/recipient-action-auth-select';
@@ -24,12 +28,14 @@ import {
   DocumentFlowFormContainerActions,
   DocumentFlowFormContainerContent,
   DocumentFlowFormContainerFooter,
+  DocumentFlowFormContainerHeader,
   DocumentFlowFormContainerStep,
 } from '../document-flow/document-flow-root';
 import { ShowFieldItem } from '../document-flow/show-field-item';
 import type { DocumentFlowStep } from '../document-flow/types';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '../form/form';
 import { useStep } from '../stepper';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../tooltip';
 import type { TAddTemplatePlacholderRecipientsFormSchema } from './add-template-placeholder-recipients.types';
 import { ZAddTemplatePlacholderRecipientsFormSchema } from './add-template-placeholder-recipients.types';
 
@@ -37,6 +43,7 @@ export type AddTemplatePlaceholderRecipientsFormProps = {
   documentFlow: DocumentFlowStep;
   recipients: Recipient[];
   fields: Field[];
+  templateDirectLink: TemplateDirectLink | null;
   isEnterprise: boolean;
   isDocumentPdfLoaded: boolean;
   onSubmit: (_data: TAddTemplatePlacholderRecipientsFormSchema) => void;
@@ -46,11 +53,14 @@ export const AddTemplatePlaceholderRecipientsFormPartial = ({
   documentFlow,
   isEnterprise,
   recipients,
+  templateDirectLink,
   fields,
   isDocumentPdfLoaded,
   onSubmit,
 }: AddTemplatePlaceholderRecipientsFormProps) => {
   const initialId = useId();
+
+  const { _ } = useLingui();
   const { data: session } = useSession();
 
   const user = session?.user;
@@ -61,31 +71,42 @@ export const AddTemplatePlaceholderRecipientsFormPartial = ({
 
   const { currentStep, totalSteps, previousStep } = useStep();
 
+  const generateDefaultFormSigners = () => {
+    if (recipients.length === 0) {
+      return [
+        {
+          formId: initialId,
+          role: RecipientRole.SIGNER,
+          actionAuth: undefined,
+          ...generateRecipientPlaceholder(1),
+        },
+      ];
+    }
+
+    return recipients.map((recipient) => ({
+      nativeId: recipient.id,
+      formId: String(recipient.id),
+      name: recipient.name,
+      email: recipient.email,
+      role: recipient.role,
+      actionAuth: ZRecipientAuthOptionsSchema.parse(recipient.authOptions)?.actionAuth ?? undefined,
+    }));
+  };
+
   const form = useForm<TAddTemplatePlacholderRecipientsFormSchema>({
     resolver: zodResolver(ZAddTemplatePlacholderRecipientsFormSchema),
     defaultValues: {
-      signers:
-        recipients.length > 0
-          ? recipients.map((recipient) => ({
-              nativeId: recipient.id,
-              formId: String(recipient.id),
-              name: recipient.name,
-              email: recipient.email,
-              role: recipient.role,
-              actionAuth:
-                ZRecipientAuthOptionsSchema.parse(recipient.authOptions)?.actionAuth ?? undefined,
-            }))
-          : [
-              {
-                formId: initialId,
-                name: `Recipient 1`,
-                email: `recipient.1@documenso.com`,
-                role: RecipientRole.SIGNER,
-                actionAuth: undefined,
-              },
-            ],
+      signers: generateDefaultFormSigners(),
     },
   });
+
+  useEffect(() => {
+    form.reset({
+      signers: generateDefaultFormSigners(),
+    });
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recipients]);
 
   // Always show advanced settings if any recipient has auth options.
   const alwaysShowAdvancedSettings = useMemo(() => {
@@ -130,11 +151,8 @@ export const AddTemplatePlaceholderRecipientsFormPartial = ({
   const onAddPlaceholderRecipient = () => {
     appendSigner({
       formId: nanoid(12),
-      // Update TEMPLATE_RECIPIENT_NAME_PLACEHOLDER_REGEX if this is ever changed.
-      name: `Recipient ${placeholderRecipientCount}`,
-      // Update TEMPLATE_RECIPIENT_EMAIL_PLACEHOLDER_REGEX if this is ever changed.
-      email: `recipient.${placeholderRecipientCount}@documenso.com`,
       role: RecipientRole.SIGNER,
+      ...generateRecipientPlaceholder(placeholderRecipientCount),
     });
 
     setPlaceholderRecipientCount((count) => count + 1);
@@ -144,8 +162,21 @@ export const AddTemplatePlaceholderRecipientsFormPartial = ({
     removeSigner(index);
   };
 
+  const isSignerDirectRecipient = (
+    signer: TAddTemplatePlacholderRecipientsFormSchema['signers'][number],
+  ): boolean => {
+    return (
+      templateDirectLink !== null &&
+      signer.nativeId === templateDirectLink?.directTemplateRecipientId
+    );
+  };
+
   return (
     <>
+      <DocumentFlowFormContainerHeader
+        title={documentFlow.title}
+        description={documentFlow.description}
+      />
       <DocumentFlowFormContainerContent>
         {isDocumentPdfLoaded &&
           fields.map((field, index) => (
@@ -175,15 +206,22 @@ export const AddTemplatePlaceholderRecipientsFormPartial = ({
                         })}
                       >
                         {!showAdvancedSettings && index === 0 && (
-                          <FormLabel required>Email</FormLabel>
+                          <FormLabel required>
+                            <Trans>Email</Trans>
+                          </FormLabel>
                         )}
 
                         <FormControl>
                           <Input
                             type="email"
-                            placeholder="Email"
+                            placeholder={_(msg`Email`)}
                             {...field}
-                            disabled={isSubmitting || signers[index].email === user?.email}
+                            disabled={
+                              field.disabled ||
+                              isSubmitting ||
+                              signers[index].email === user?.email ||
+                              isSignerDirectRecipient(signer)
+                            }
                           />
                         </FormControl>
 
@@ -202,13 +240,22 @@ export const AddTemplatePlaceholderRecipientsFormPartial = ({
                           'col-span-4': showAdvancedSettings,
                         })}
                       >
-                        {!showAdvancedSettings && index === 0 && <FormLabel>Name</FormLabel>}
+                        {!showAdvancedSettings && index === 0 && (
+                          <FormLabel>
+                            <Trans>Name</Trans>
+                          </FormLabel>
+                        )}
 
                         <FormControl>
                           <Input
-                            placeholder="Name"
+                            placeholder={_(msg`Name`)}
                             {...field}
-                            disabled={isSubmitting || signers[index].email === user?.email}
+                            disabled={
+                              field.disabled ||
+                              isSubmitting ||
+                              signers[index].email === user?.email ||
+                              isSignerDirectRecipient(signer)
+                            }
                           />
                         </FormControl>
 
@@ -246,6 +293,7 @@ export const AddTemplatePlaceholderRecipientsFormPartial = ({
                             {...field}
                             onValueChange={field.onChange}
                             disabled={isSubmitting}
+                            hideCCRecipients={isSignerDirectRecipient(signer)}
                           />
                         </FormControl>
 
@@ -254,14 +302,34 @@ export const AddTemplatePlaceholderRecipientsFormPartial = ({
                     )}
                   />
 
-                  <button
-                    type="button"
-                    className="col-span-1 mt-auto inline-flex h-10 w-10 items-center justify-center text-slate-500 hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
-                    disabled={isSubmitting || signers.length === 1}
-                    onClick={() => onRemoveSigner(index)}
-                  >
-                    <Trash className="h-5 w-5" />
-                  </button>
+                  {isSignerDirectRecipient(signer) ? (
+                    <Tooltip>
+                      <TooltipTrigger className="col-span-1 mt-auto inline-flex h-10 w-10 items-center justify-center text-slate-500 hover:opacity-80">
+                        <Link2Icon className="h-4 w-4" />
+                      </TooltipTrigger>
+                      <TooltipContent className="text-foreground z-9999 max-w-md p-4">
+                        <h3 className="text-foreground text-lg font-semibold">
+                          <Trans>Direct link receiver</Trans>
+                        </h3>
+                        <p className="text-muted-foreground mt-1">
+                          <Trans>
+                            This field cannot be modified or deleted. When you share this template's
+                            direct link or add it to your public profile, anyone who accesses it can
+                            input their name and email, and fill in the fields assigned to them.
+                          </Trans>
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    <button
+                      type="button"
+                      className="col-span-1 mt-auto inline-flex h-10 w-10 items-center justify-center text-slate-500 hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={isSubmitting || signers.length === 1}
+                      onClick={() => onRemoveSigner(index)}
+                    >
+                      <Trash className="h-5 w-5" />
+                    </button>
+                  )}
                 </motion.fieldset>
               ))}
             </div>
@@ -284,7 +352,7 @@ export const AddTemplatePlaceholderRecipientsFormPartial = ({
                 onClick={() => onAddPlaceholderRecipient()}
               >
                 <Plus className="-ml-1 mr-2 h-5 w-5" />
-                Add Placeholder Recipient
+                <Trans>Add Placeholder Recipient</Trans>
               </Button>
 
               <Button
@@ -298,7 +366,7 @@ export const AddTemplatePlaceholderRecipientsFormPartial = ({
                 onClick={() => onAddPlaceholderSelfRecipient()}
               >
                 <Plus className="-ml-1 mr-2 h-5 w-5" />
-                Add Myself
+                <Trans>Add Myself</Trans>
               </Button>
             </div>
 
@@ -316,7 +384,7 @@ export const AddTemplatePlaceholderRecipientsFormPartial = ({
                   className="text-muted-foreground ml-2 text-sm"
                   htmlFor="showAdvancedRecipientSettings"
                 >
-                  Show advanced settings
+                  <Trans>Show advanced settings</Trans>
                 </label>
               </div>
             )}
@@ -325,11 +393,7 @@ export const AddTemplatePlaceholderRecipientsFormPartial = ({
       </DocumentFlowFormContainerContent>
 
       <DocumentFlowFormContainerFooter>
-        <DocumentFlowFormContainerStep
-          title={documentFlow.title}
-          step={currentStep}
-          maxStep={totalSteps}
-        />
+        <DocumentFlowFormContainerStep step={currentStep} maxStep={totalSteps} />
 
         <DocumentFlowFormContainerActions
           loading={isSubmitting}

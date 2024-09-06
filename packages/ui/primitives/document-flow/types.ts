@@ -1,5 +1,7 @@
+import type { MessageDescriptor } from '@lingui/core';
 import { z } from 'zod';
 
+import { ZFieldMetaSchema } from '@documenso/lib/types/field-meta';
 import { FieldType } from '@documenso/prisma/client';
 
 export const ZDocumentFlowFormSchema = z.object({
@@ -30,6 +32,7 @@ export const ZDocumentFlowFormSchema = z.object({
       pageY: z.number().min(0),
       pageWidth: z.number().min(0),
       pageHeight: z.number().min(0),
+      fieldMeta: ZFieldMetaSchema,
     }),
   ),
 
@@ -44,15 +47,20 @@ export type TDocumentFlowFormSchema = z.infer<typeof ZDocumentFlowFormSchema>;
 export const FRIENDLY_FIELD_TYPE: Record<FieldType, string> = {
   [FieldType.SIGNATURE]: 'Signature',
   [FieldType.FREE_SIGNATURE]: 'Free Signature',
+  [FieldType.INITIALS]: 'Initials',
   [FieldType.TEXT]: 'Text',
   [FieldType.DATE]: 'Date',
   [FieldType.EMAIL]: 'Email',
   [FieldType.NAME]: 'Name',
+  [FieldType.NUMBER]: 'Number',
+  [FieldType.RADIO]: 'Radio',
+  [FieldType.CHECKBOX]: 'Checkbox',
+  [FieldType.DROPDOWN]: 'Select',
 };
 
 export interface DocumentFlowStep {
-  title: string;
-  description: string;
+  title: MessageDescriptor;
+  description: MessageDescriptor;
   stepIndex?: number;
   onBackStep?: () => unknown;
   onNextStep?: () => unknown;

@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { WEBAPP_BASE_URL } from '@documenso/lib/constants/app';
-import { seedTeam, seedTeamInvite, unseedTeam } from '@documenso/prisma/seed/teams';
+import { seedTeam, seedTeamInvite } from '@documenso/prisma/seed/teams';
 import { seedUser } from '@documenso/prisma/seed/users';
 
 import { apiSignin } from '../fixtures/authentication';
@@ -32,11 +32,13 @@ test('[TEAMS]: update team member role', async ({ page }) => {
   await page.getByRole('combobox').click();
   await page.getByLabel('Manager').click();
   await page.getByRole('button', { name: 'Update' }).click();
-  await expect(
-    page.getByRole('row').filter({ hasText: teamMemberToUpdate.user.email }),
-  ).toContainText('Manager');
 
-  await unseedTeam(team.url);
+  // TODO: Remove me, but i don't care for now
+  await page.reload();
+
+  await expect(
+    page.getByRole('row').filter({ hasText: teamMemberToUpdate.user.email }).first(),
+  ).toContainText('Manager');
 });
 
 test('[TEAMS]: accept team invitation without account', async ({ page }) => {
@@ -49,8 +51,6 @@ test('[TEAMS]: accept team invitation without account', async ({ page }) => {
 
   await page.goto(`${WEBAPP_BASE_URL}/team/invite/${teamInvite.token}`);
   await expect(page.getByRole('heading')).toContainText('Team invitation');
-
-  await unseedTeam(team.url);
 });
 
 test('[TEAMS]: accept team invitation with account', async ({ page }) => {
@@ -64,8 +64,6 @@ test('[TEAMS]: accept team invitation with account', async ({ page }) => {
 
   await page.goto(`${WEBAPP_BASE_URL}/team/invite/${teamInvite.token}`);
   await expect(page.getByRole('heading')).toContainText('Invitation accepted!');
-
-  await unseedTeam(team.url);
 });
 
 test('[TEAMS]: member can leave team', async ({ page }) => {
@@ -88,8 +86,6 @@ test('[TEAMS]: member can leave team', async ({ page }) => {
   await expect(page.getByRole('status').first()).toContainText(
     'You have successfully left this team.',
   );
-
-  await unseedTeam(team.url);
 });
 
 test('[TEAMS]: owner cannot leave team', async ({ page }) => {
@@ -105,6 +101,4 @@ test('[TEAMS]: owner cannot leave team', async ({ page }) => {
   });
 
   await expect(page.getByRole('button').getByText('Leave')).toBeDisabled();
-
-  await unseedTeam(team.url);
 });

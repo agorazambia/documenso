@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Trans } from '@lingui/macro';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -18,7 +19,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@documenso/ui/primitives/form/form';
-import { Input } from '@documenso/ui/primitives/input';
+import { PinInput, PinInputGroup, PinInputSlot } from '@documenso/ui/primitives/pin-input';
 
 import { EnableAuthenticatorAppDialog } from '~/components/forms/2fa/enable-authenticator-app-dialog';
 
@@ -100,15 +101,20 @@ export const DocumentActionAuth2FA = ({
         <Alert variant="warning">
           <AlertDescription>
             <p>
-              {recipient.role === RecipientRole.VIEWER && actionTarget === 'DOCUMENT'
-                ? 'You need to setup 2FA to mark this document as viewed.'
-                : `You need to setup 2FA to ${actionVerb.toLowerCase()} this ${actionTarget.toLowerCase()}.`}
+              {recipient.role === RecipientRole.VIEWER && actionTarget === 'DOCUMENT' ? (
+                <Trans>You need to setup 2FA to mark this document as viewed.</Trans>
+              ) : (
+                // Todo: Translate
+                `You need to setup 2FA to ${actionVerb.toLowerCase()} this ${actionTarget.toLowerCase()}.`
+              )}
             </p>
 
             {user?.identityProvider === 'DOCUMENSO' && (
               <p className="mt-2">
-                By enabling 2FA, you will be required to enter a code from your authenticator app
-                every time you sign in.
+                <Trans>
+                  By enabling 2FA, you will be required to enter a code from your authenticator app
+                  every time you sign in.
+                </Trans>
               </p>
             )}
           </AlertDescription>
@@ -116,7 +122,7 @@ export const DocumentActionAuth2FA = ({
 
         <DialogFooter>
           <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
-            Close
+            <Trans>Close</Trans>
           </Button>
 
           <EnableAuthenticatorAppDialog onSuccess={() => setIs2FASetupSuccessful(true)} />
@@ -138,7 +144,15 @@ export const DocumentActionAuth2FA = ({
                   <FormLabel required>2FA token</FormLabel>
 
                   <FormControl>
-                    <Input {...field} placeholder="Token" />
+                    <PinInput {...field} value={field.value ?? ''} maxLength={6}>
+                      {Array(6)
+                        .fill(null)
+                        .map((_, i) => (
+                          <PinInputGroup key={i}>
+                            <PinInputSlot index={i} />
+                          </PinInputGroup>
+                        ))}
+                    </PinInput>
                   </FormControl>
 
                   <FormMessage />
@@ -148,20 +162,24 @@ export const DocumentActionAuth2FA = ({
 
             {formErrorCode && (
               <Alert variant="destructive">
-                <AlertTitle>Unauthorized</AlertTitle>
+                <AlertTitle>
+                  <Trans>Unauthorized</Trans>
+                </AlertTitle>
                 <AlertDescription>
-                  We were unable to verify your details. Please try again or contact support
+                  <Trans>
+                    We were unable to verify your details. Please try again or contact support
+                  </Trans>
                 </AlertDescription>
               </Alert>
             )}
 
             <DialogFooter>
               <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
-                Cancel
+                <Trans>Cancel</Trans>
               </Button>
 
               <Button type="submit" loading={isCurrentlyAuthenticating}>
-                Sign
+                <Trans>Sign</Trans>
               </Button>
             </DialogFooter>
           </div>

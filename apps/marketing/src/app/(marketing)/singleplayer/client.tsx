@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
+import { msg } from '@lingui/macro';
+
 import { useAnalytics } from '@documenso/lib/client-only/hooks/use-analytics';
 import { NEXT_PUBLIC_WEBAPP_URL } from '@documenso/lib/constants/app';
 import { base64 } from '@documenso/lib/universal/base64';
@@ -46,8 +48,8 @@ export const SinglePlayerClient = () => {
 
   const documentFlow: Record<SinglePlayerModeStep, DocumentFlowStep> = {
     fields: {
-      title: 'Add document',
-      description: 'Upload a document and add fields.',
+      title: msg`Add document`,
+      description: msg`Upload a document and add fields.`,
       stepIndex: 1,
       onBackStep: uploadedFile
         ? () => {
@@ -58,8 +60,8 @@ export const SinglePlayerClient = () => {
       onNextStep: () => setStep('sign'),
     },
     sign: {
-      title: 'Sign',
-      description: 'Enter your details.',
+      title: msg`Sign`,
+      description: msg`Enter your details.`,
       stepIndex: 2,
       onBackStep: () => setStep('fields'),
     },
@@ -98,6 +100,7 @@ export const SinglePlayerClient = () => {
         height: new Prisma.Decimal(field.pageHeight),
         customText: '',
         inserted: false,
+        fieldMeta: field.fieldMeta ?? {},
       })),
     );
 
@@ -131,7 +134,9 @@ export const SinglePlayerClient = () => {
           positionY: field.positionY.toNumber(),
           width: field.width.toNumber(),
           height: field.height.toNumber(),
+          fieldMeta: field.fieldMeta,
         })),
+        fieldMeta: { type: undefined },
       });
 
       analytics.capture('Marketing: SPM - Document signed', {
@@ -248,6 +253,7 @@ export const SinglePlayerClient = () => {
                   recipients={uploadedFile ? [placeholderRecipient] : []}
                   fields={fields}
                   onSubmit={onFieldsSubmit}
+                  canGoBack={true}
                   isDocumentPdfLoaded={true}
                 />
               </fieldset>

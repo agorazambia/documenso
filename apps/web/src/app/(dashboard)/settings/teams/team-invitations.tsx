@@ -1,8 +1,10 @@
 'use client';
 
+import { Plural, Trans } from '@lingui/macro';
 import { AnimatePresence } from 'framer-motion';
 import { BellIcon } from 'lucide-react';
 
+import { NEXT_PUBLIC_WEBAPP_URL } from '@documenso/lib/constants/app';
 import { formatTeamUrl } from '@documenso/lib/utils/teams';
 import { trpc } from '@documenso/trpc/react';
 import { AnimateGenericFadeInOut } from '@documenso/ui/components/animate/animate-generic-fade-in-out';
@@ -18,6 +20,7 @@ import {
 } from '@documenso/ui/primitives/dialog';
 
 import { AcceptTeamInvitationButton } from './accept-team-invitation-button';
+import { DeclineTeamInvitationButton } from './decline-team-invitation-button';
 
 export const TeamInvitations = () => {
   const { data, isInitialLoading } = trpc.team.getTeamInvitations.useQuery();
@@ -31,23 +34,48 @@ export const TeamInvitations = () => {
               <BellIcon className="mr-4 h-5 w-5 text-blue-800" />
 
               <AlertDescription className="mr-2">
-                You have <strong>{data.length}</strong> pending team invitation
-                {data.length > 1 ? 's' : ''}.
+                <Plural
+                  value={data.length}
+                  one={
+                    <span>
+                      You have <strong>1</strong> pending team invitation
+                    </span>
+                  }
+                  other={
+                    <span>
+                      You have <strong>#</strong> pending team invitations
+                    </span>
+                  }
+                />
               </AlertDescription>
 
               <Dialog>
                 <DialogTrigger asChild>
                   <button className="ml-auto text-sm font-medium text-blue-700 hover:text-blue-600">
-                    View invites
+                    <Trans>View invites</Trans>
                   </button>
                 </DialogTrigger>
 
                 <DialogContent position="center">
                   <DialogHeader>
-                    <DialogTitle>Pending invitations</DialogTitle>
+                    <DialogTitle>
+                      <Trans>Pending invitations</Trans>
+                    </DialogTitle>
 
                     <DialogDescription className="mt-4">
-                      You have {data.length} pending team invitation{data.length > 1 ? 's' : ''}.
+                      <Plural
+                        value={data.length}
+                        one={
+                          <span>
+                            You have <strong>1</strong> pending team invitation
+                          </span>
+                        }
+                        other={
+                          <span>
+                            You have <strong>#</strong> pending team invitations
+                          </span>
+                        }
+                      />
                     </DialogDescription>
                   </DialogHeader>
 
@@ -55,6 +83,9 @@ export const TeamInvitations = () => {
                     {data.map((invitation) => (
                       <li key={invitation.teamId}>
                         <AvatarWithText
+                          avatarSrc={`${NEXT_PUBLIC_WEBAPP_URL()}/api/avatar/${
+                            invitation.team.avatarImageId
+                          }`}
                           className="w-full max-w-none py-4"
                           avatarFallback={invitation.team.name.slice(0, 1)}
                           primaryText={
@@ -64,7 +95,8 @@ export const TeamInvitations = () => {
                           }
                           secondaryText={formatTeamUrl(invitation.team.url)}
                           rightSideComponent={
-                            <div className="ml-auto">
+                            <div className="ml-auto space-x-2">
+                              <DeclineTeamInvitationButton teamId={invitation.team.id} />
                               <AcceptTeamInvitationButton teamId={invitation.team.id} />
                             </div>
                           }

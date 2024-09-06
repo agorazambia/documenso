@@ -3,9 +3,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+import { Trans, msg } from '@lingui/macro';
+import { useLingui } from '@lingui/react';
+import { motion } from 'framer-motion';
 import { CheckCircle2, ChevronsUpDown, Plus, Settings2 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 
+import { NEXT_PUBLIC_WEBAPP_URL } from '@documenso/lib/constants/app';
 import { TEAM_MEMBER_ROLE_MAP, TEAM_URL_REGEX } from '@documenso/lib/constants/teams';
 import { isAdmin } from '@documenso/lib/next-auth/guards/is-admin';
 import type { GetTeamsResponse } from '@documenso/lib/server-only/team/get-teams';
@@ -25,12 +29,16 @@ import {
   DropdownMenuTrigger,
 } from '@documenso/ui/primitives/dropdown-menu';
 
+const MotionLink = motion(Link);
+
 export type MenuSwitcherProps = {
   user: User;
   teams: GetTeamsResponse;
 };
 
 export const MenuSwitcher = ({ user, teams: initialTeamsData }: MenuSwitcherProps) => {
+  const { _ } = useLingui();
+
   const pathname = usePathname();
 
   const isUserAdmin = isAdmin(user);
@@ -61,14 +69,14 @@ export const MenuSwitcher = ({ user, teams: initialTeamsData }: MenuSwitcherProp
 
   const formatSecondaryAvatarText = (team?: typeof selectedTeam) => {
     if (!team) {
-      return 'Personal Account';
+      return _(msg`Personal Account`);
     }
 
     if (team.ownerUserId === user.id) {
-      return 'Owner';
+      return _(msg`Owner`);
     }
 
-    return TEAM_MEMBER_ROLE_MAP[team.currentTeamMember.role];
+    return _(TEAM_MEMBER_ROLE_MAP[team.currentTeamMember.role]);
   };
 
   /**
@@ -96,6 +104,9 @@ export const MenuSwitcher = ({ user, teams: initialTeamsData }: MenuSwitcherProp
           className="relative flex h-12 flex-row items-center px-0 py-2 ring-0 focus:outline-none focus-visible:border-0 focus-visible:ring-0 focus-visible:ring-transparent md:px-2"
         >
           <AvatarWithText
+            avatarSrc={`${NEXT_PUBLIC_WEBAPP_URL()}/api/avatar/${
+              selectedTeam ? selectedTeam.avatarImageId : user.avatarImageId
+            }`}
             avatarFallback={formatAvatarFallback(selectedTeam?.name)}
             primaryText={selectedTeam ? selectedTeam.name : user.name}
             secondaryText={formatSecondaryAvatarText(selectedTeam)}
@@ -114,11 +125,18 @@ export const MenuSwitcher = ({ user, teams: initialTeamsData }: MenuSwitcherProp
       >
         {teams ? (
           <>
-            <DropdownMenuLabel>Personal</DropdownMenuLabel>
+            <DropdownMenuLabel>
+              <Trans>Personal</Trans>
+            </DropdownMenuLabel>
 
             <DropdownMenuItem asChild>
               <Link href={formatRedirectUrlOnSwitch()}>
                 <AvatarWithText
+                  avatarSrc={
+                    user.avatarImageId
+                      ? `${NEXT_PUBLIC_WEBAPP_URL()}/api/avatar/${user.avatarImageId}`
+                      : undefined
+                  }
                   avatarFallback={formatAvatarFallback()}
                   primaryText={user.name}
                   secondaryText={formatSecondaryAvatarText()}
@@ -135,12 +153,14 @@ export const MenuSwitcher = ({ user, teams: initialTeamsData }: MenuSwitcherProp
 
             <DropdownMenuLabel>
               <div className="flex flex-row items-center justify-between">
-                <p>Teams</p>
+                <p>
+                  <Trans>Teams</Trans>
+                </p>
 
                 <div className="flex flex-row space-x-2">
                   <DropdownMenuItem asChild>
                     <Button
-                      title="Manage teams"
+                      title={_(msg`Manage teams`)}
                       variant="ghost"
                       className="text-muted-foreground flex h-5 w-5 items-center justify-center p-0"
                       asChild
@@ -153,7 +173,7 @@ export const MenuSwitcher = ({ user, teams: initialTeamsData }: MenuSwitcherProp
 
                   <DropdownMenuItem asChild>
                     <Button
-                      title="Create team"
+                      title={_(msg`Create team`)}
                       variant="ghost"
                       className="text-muted-foreground flex h-5 w-5 items-center justify-center p-0"
                       asChild
@@ -170,18 +190,49 @@ export const MenuSwitcher = ({ user, teams: initialTeamsData }: MenuSwitcherProp
             <div className="custom-scrollbar max-h-[40vh] overflow-auto">
               {teams.map((team) => (
                 <DropdownMenuItem asChild key={team.id}>
-                  <Link href={formatRedirectUrlOnSwitch(team.url)}>
+                  <MotionLink
+                    initial="initial"
+                    animate="initial"
+                    whileHover="animate"
+                    href={formatRedirectUrlOnSwitch(team.url)}
+                  >
                     <AvatarWithText
+                      avatarSrc={
+                        team.avatarImageId
+                          ? `${NEXT_PUBLIC_WEBAPP_URL()}/api/avatar/${team.avatarImageId}`
+                          : undefined
+                      }
                       avatarFallback={formatAvatarFallback(team.name)}
                       primaryText={team.name}
-                      secondaryText={formatSecondaryAvatarText(team)}
+                      textSectionClassName="w-[200px]"
+                      secondaryText={
+                        <div className="relative w-full">
+                          <motion.span
+                            className="overflow-hidden"
+                            variants={{
+                              initial: { opacity: 1, translateY: 0 },
+                              animate: { opacity: 0, translateY: '100%' },
+                            }}
+                          >
+                            {formatSecondaryAvatarText(team)}
+                          </motion.span>
+
+                          <motion.span
+                            className="absolute inset-0"
+                            variants={{
+                              initial: { opacity: 0, translateY: '100%' },
+                              animate: { opacity: 1, translateY: 0 },
+                            }}
+                          >{`/t/${team.url}`}</motion.span>
+                        </div>
+                      }
                       rightSideComponent={
                         isPathTeamUrl(team.url) && (
                           <CheckCircle2 className="ml-auto fill-black text-white dark:fill-white dark:text-black" />
                         )
                       }
                     />
-                  </Link>
+                  </MotionLink>
                 </DropdownMenuItem>
               ))}
             </div>
@@ -192,7 +243,7 @@ export const MenuSwitcher = ({ user, teams: initialTeamsData }: MenuSwitcherProp
               href="/settings/teams?action=add-team"
               className="flex items-center justify-between"
             >
-              Create team
+              <Trans>Create team</Trans>
               <Plus className="ml-2 h-4 w-4" />
             </Link>
           </DropdownMenuItem>
@@ -202,18 +253,24 @@ export const MenuSwitcher = ({ user, teams: initialTeamsData }: MenuSwitcherProp
 
         {isUserAdmin && (
           <DropdownMenuItem className="text-muted-foreground px-4 py-2" asChild>
-            <Link href="/admin">Admin panel</Link>
+            <Link href="/admin">
+              <Trans>Admin panel</Trans>
+            </Link>
           </DropdownMenuItem>
         )}
 
         <DropdownMenuItem className="text-muted-foreground px-4 py-2" asChild>
-          <Link href="/settings/profile">User settings</Link>
+          <Link href="/settings/profile">
+            <Trans>User settings</Trans>
+          </Link>
         </DropdownMenuItem>
 
         {selectedTeam &&
           canExecuteTeamAction('MANAGE_TEAM', selectedTeam.currentTeamMember.role) && (
             <DropdownMenuItem className="text-muted-foreground px-4 py-2" asChild>
-              <Link href={`/t/${selectedTeam.url}/settings/`}>Team settings</Link>
+              <Link href={`/t/${selectedTeam.url}/settings/`}>
+                <Trans>Team settings</Trans>
+              </Link>
             </DropdownMenuItem>
           )}
 
@@ -225,7 +282,7 @@ export const MenuSwitcher = ({ user, teams: initialTeamsData }: MenuSwitcherProp
             })
           }
         >
-          Sign Out
+          <Trans>Sign Out</Trans>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Trans } from '@lingui/macro';
 import { DateTime } from 'luxon';
 import { useForm } from 'react-hook-form';
 import { match } from 'ts-pattern';
@@ -59,7 +60,6 @@ export const AddSignatureFormPartial = ({
   requireSignature = true,
 }: AddSignatureFormProps) => {
   const { currentStep, totalSteps } = useStep();
-
   const [validateUninsertedFields, setValidateUninsertedFields] = useState(false);
 
   // Refined schema which takes into account whether to allow an empty name or signature.
@@ -147,6 +147,26 @@ export const AddSignatureFormPartial = ({
       return !form.formState.errors.customText;
     }
 
+    if (fieldType === FieldType.NUMBER) {
+      await form.trigger('number');
+      return !form.formState.errors.number;
+    }
+
+    if (fieldType === FieldType.RADIO) {
+      await form.trigger('radio');
+      return !form.formState.errors.radio;
+    }
+
+    if (fieldType === FieldType.CHECKBOX) {
+      await form.trigger('checkbox');
+      return !form.formState.errors.checkbox;
+    }
+
+    if (fieldType === FieldType.DROPDOWN) {
+      await form.trigger('dropdown');
+      return !form.formState.errors.dropdown;
+    }
+
     return true;
   };
 
@@ -170,7 +190,7 @@ export const AddSignatureFormPartial = ({
         customText: form.getValues('name'),
         inserted: true,
       }))
-      .with(FieldType.TEXT, () => ({
+      .with(FieldType.TEXT, FieldType.NUMBER, FieldType.RADIO, FieldType.CHECKBOX, () => ({
         ...field,
         customText: form.getValues('customText'),
         inserted: true,
@@ -248,7 +268,9 @@ export const AddSignatureFormPartial = ({
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel required>Email</FormLabel>
+                    <FormLabel required>
+                      <Trans>Email</Trans>
+                    </FormLabel>
                     <FormControl>
                       <Input
                         className="bg-background"
@@ -272,7 +294,9 @@ export const AddSignatureFormPartial = ({
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel required={requireName}>Name</FormLabel>
+                      <FormLabel required={requireName}>
+                        <Trans>Name</Trans>
+                      </FormLabel>
                       <FormControl>
                         <Input
                           className="bg-background"
@@ -295,7 +319,9 @@ export const AddSignatureFormPartial = ({
                   name="signature"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel required={requireSignature}>Signature</FormLabel>
+                      <FormLabel required={requireSignature}>
+                        <Trans>Signature</Trans>
+                      </FormLabel>
                       <FormControl>
                         <Card
                           className={cn('mt-2', {
@@ -330,7 +356,9 @@ export const AddSignatureFormPartial = ({
                   name="customText"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel required={requireCustomText}>Custom Text</FormLabel>
+                      <FormLabel required={requireCustomText}>
+                        <Trans>Custom Text</Trans>
+                      </FormLabel>
                       <FormControl>
                         <Input
                           className="bg-background"
@@ -350,11 +378,7 @@ export const AddSignatureFormPartial = ({
           </DocumentFlowFormContainerContent>
 
           <DocumentFlowFormContainerFooter>
-            <DocumentFlowFormContainerStep
-              title={documentFlow.title}
-              step={currentStep}
-              maxStep={totalSteps}
-            />
+            <DocumentFlowFormContainerStep step={currentStep} maxStep={totalSteps} />
 
             <DocumentFlowFormContainerActions
               loading={form.formState.isSubmitting}
@@ -367,22 +391,32 @@ export const AddSignatureFormPartial = ({
 
         {validateUninsertedFields && uninsertedFields[0] && (
           <FieldToolTip key={uninsertedFields[0].id} field={uninsertedFields[0]} color="warning">
-            Click to insert field
+            <Trans>Click to insert field</Trans>
           </FieldToolTip>
         )}
 
         <ElementVisible target={PDF_VIEWER_PAGE_SELECTOR}>
           {localFields.map((field) =>
             match(field.type)
-              .with(FieldType.DATE, FieldType.TEXT, FieldType.EMAIL, FieldType.NAME, () => {
-                return (
-                  <SinglePlayerModeCustomTextField
-                    onClick={insertField(field)}
-                    key={field.id}
-                    field={field}
-                  />
-                );
-              })
+              .with(
+                FieldType.DATE,
+                FieldType.TEXT,
+                FieldType.EMAIL,
+                FieldType.NAME,
+                FieldType.NUMBER,
+                FieldType.CHECKBOX,
+                FieldType.RADIO,
+                FieldType.DROPDOWN,
+                () => {
+                  return (
+                    <SinglePlayerModeCustomTextField
+                      onClick={insertField(field)}
+                      key={field.id}
+                      field={field}
+                    />
+                  );
+                },
+              )
               .with(FieldType.SIGNATURE, () => (
                 <SinglePlayerModeSignatureField
                   onClick={insertField(field)}

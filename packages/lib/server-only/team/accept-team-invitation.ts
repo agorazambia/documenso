@@ -1,7 +1,9 @@
 import { updateSubscriptionItemQuantity } from '@documenso/ee/server-only/stripe/update-subscription-item-quantity';
+import { IS_BILLING_ENABLED } from '@documenso/lib/constants/app';
 import { prisma } from '@documenso/prisma';
+import { TeamMemberInviteStatus } from '@documenso/prisma/client';
 
-import { IS_BILLING_ENABLED } from '../../constants/app';
+import { jobs } from '../../jobs/client';
 
 export type AcceptTeamInvitationOptions = {
   userId: number;
@@ -21,19 +23,31 @@ export const acceptTeamInvitation = async ({ userId, teamId }: AcceptTeamInvitat
         where: {
           teamId,
           email: user.email,
+          status: {
+            not: TeamMemberInviteStatus.DECLINED,
+          },
         },
         include: {
           team: {
             include: {
               subscription: true,
+              members: {
+                include: {
+                  user: true,
+                },
+              },
             },
           },
         },
       });
 
+      if (teamMemberInvite.status === TeamMemberInviteStatus.ACCEPTED) {
+        return;
+      }
+
       const { team } = teamMemberInvite;
 
-      await tx.teamMember.create({
+      const teamMember = await tx.teamMember.create({
         data: {
           teamId: teamMemberInvite.teamId,
           userId: user.id,
@@ -41,9 +55,12 @@ export const acceptTeamInvitation = async ({ userId, teamId }: AcceptTeamInvitat
         },
       });
 
-      await tx.teamMemberInvite.delete({
+      await tx.teamMemberInvite.update({
         where: {
           id: teamMemberInvite.id,
+        },
+        data: {
+          status: TeamMemberInviteStatus.ACCEPTED,
         },
       });
 
@@ -60,6 +77,14 @@ export const acceptTeamInvitation = async ({ userId, teamId }: AcceptTeamInvitat
           quantity: numberOfSeats,
         });
       }
+
+      await jobs.triggerJob({
+        name: 'send.team-member-joined.email',
+        payload: {
+          teamId: team.id,
+          memberId: teamMember.id,
+        },
+      });
     },
     { timeout: 30_000 },
   );
